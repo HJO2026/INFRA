@@ -33,3 +33,10 @@
   모든 SUT·k6 컨테이너에 `memswap_limit` = `mem_limit` 지정 (스왑 사용 금지)
 - 왜: `eclipse-temurin:25-jdk` 에는 curl·wget 이 없다. 스왑을 막아야 mem_limit 초과 시 동작(OOM)이 호스트마다 같다
 - 되돌리려면: Dockerfile 의 apt-get 줄 삭제 + healthcheck 를 bash `/dev/tcp` 방식으로 교체. memswap_limit 줄 삭제
+
+## 2026-09-18 / 3단계 / cAdvisor 마운트를 Docker Desktop(macOS) 기준으로 구성
+- 정한 것: cAdvisor 볼륨을 `/var/run/docker.sock`, `/run/containerd/containerd.sock`, `/var/lib/docker`, `/sys` 네 개만 마운트.
+  리눅스 호스트용 표준 구성의 `/:/rootfs`, `/var/run`(디렉터리), `/dev/disk` 는 뺐다
+- 왜: Docker Desktop 은 `/var/run` 디렉터리 마운트를 Mac 쪽 경로로 매핑해 docker.sock 을 못 찾고, cAdvisor v0.55 의 docker factory 는
+  containerd 소켓과 `/var/lib/docker`(rw 레이어 식별) 가 없으면 컨테이너를 아예 등록하지 않는다. 이 구성으로 컨테이너별 CPU·메모리·디스크 IO 지표가 나온다
+- 되돌리려면: 리눅스 호스트에서 지표가 비면 표준 마운트(`/:/rootfs:ro`, `/var/run:/var/run:ro`, `/dev/disk/:/dev/disk:ro`)를 추가

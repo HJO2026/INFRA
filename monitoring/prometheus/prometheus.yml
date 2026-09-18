@@ -1,0 +1,40 @@
+# 부하 테스트 기본: 5초 스크레이프. 스파이크 분석용 1초 설정은 prometheus.1s.yml (PROM_CONFIG 로 선택)
+global:
+  scrape_interval: 5s
+  scrape_timeout: 4s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: app
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:8080"]
+        labels: { service: app }
+
+  - job_name: postgres_exporter
+    static_configs:
+      - targets: ["postgres_exporter:9187"]
+        labels: { service: postgres }
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels: { service: cadvisor }
+    metric_relabel_configs:
+      # compose 서비스명을 짧은 라벨로
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: svc
+      # compose 프로젝트명 (bench). 같은 VM 의 다른 프로젝트 컨테이너와 구분
+      - source_labels: [container_label_com_docker_compose_project]
+        target_label: project
+      # 컨테이너 아닌 cgroup(루트, 시스템 슬라이스) 은 버림
+      - source_labels: [__name__, name]
+        regex: 'container_.*;'
+        action: drop
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels: { service: prometheus }
+
+  # k6 는 remote write 로 들어온다 (k6_* 지표). 스크레이프 없음.

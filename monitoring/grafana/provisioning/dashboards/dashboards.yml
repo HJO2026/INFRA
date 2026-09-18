@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: bench
+    folder: bench
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false     # 대시보드는 JSON 파일이 진실. UI 수정은 export 후 커밋
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
