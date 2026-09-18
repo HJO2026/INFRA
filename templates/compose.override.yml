@@ -1,0 +1,60 @@
+# impl 레포용 compose.override.yml 예시. impl 레포 루트에 두고 bench-infra 에서 이렇게 합친다:
+#   make up COMPOSE_OVERRIDE=/abs/path/impl-<name>/compose.override.yml
+#   ./run-test.sh impl-<name> 3      (bench.config.yml targets.<name>.override 에 경로를 적어 두면 자동)
+#
+# 규칙 (docs/study-spec.md 3·5장, docs/role-3.md 예산표):
+#  - 추가 컴포넌트도 cpuset "0-3" (SUT) 안에서 돈다. 예산표의 mem_limit 을 넘지 않는다
+#  - 데이터는 named volume. bind mount 는 설정 파일만
+#  - 이미지 태그 고정 (latest 금지)
+#  - app 의 이미지·JVM 옵션은 여기서 바꾸지 않는다 (APP_IMAGE 환경변수, JAVA_TOOL_OPTIONS 는 compose.base.yml 이 관리)
+#    단, 앱이 추가 환경변수(예: Kafka 주소)를 받아야 하면 app.environment 에 덧붙일 수 있다
+name: bench
+
+services:
+  app:
+    environment:
+      # 예: 앱이 추가 컴포넌트 주소를 환경변수로 받는 경우
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # 예시: Kafka (KRaft 단일 노드). 도입 시 태그·digest 는 versions.env 에 추가하고 open-questions 에 근거를 적는다
+  kafka:
+    image: apache/kafka:4.0.0            # 예시 태그. 실제 도입 시 make pin 으로 digest 고정
+    container_name: bench-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 4            # study-spec 5장 baseline
+      KAFKA_HEAP_OPTS: -Xmx1g -Xms1g
+      TZ: UTC
+    volumes:
+      - kafkadata:/var/lib/kafka/data
+    cpuset: "0-3"
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [bench]
+
+  # 예시: Redis
+  # redis:
+  #   image: redis:8.0.3-bookworm
+  #   command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+  #   cpuset: "0-3"
+  #   mem_limit: 320m
+  #   memswap_limit: 320m
+  #   networks: [bench]
+
+volumes:
+  kafkadata:
