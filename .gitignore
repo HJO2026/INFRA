@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# 시드 덤프 (역할 2가 배포, 용량 큼)
+seed/dumps/*
+!seed/dumps/.gitkeep
+
+# 측정 결과 원본. 리포트 md만 커밋 허용
+results/**
+!results/.gitkeep
+!results/**/
+!results/**/report.md
+
+# 스텁 앱 빌드 산출물
+stub-app/build/
+stub-app/.gradle/
+stub-app/bin/
+stub-app/.idea/
+stub-app/*.iml
+
+# 로컬 오버라이드 (impl 레포에서 가져온 것은 여기 두지 않음)
+compose/compose.local.yml
+.env.local
+
+# 루트에 남아 있는 docs/role-3.md 사본 (내용 동일). 원본은 docs/ 아래
+/role-3.md
