@@ -27,9 +27,9 @@ scrape_configs:
       # compose 프로젝트명 (bench). 같은 VM 의 다른 프로젝트 컨테이너와 구분
       - source_labels: [container_label_com_docker_compose_project]
         target_label: project
-      # 컨테이너 아닌 cgroup(루트, 시스템 슬라이스) 은 버림
-      - source_labels: [__name__, name]
-        regex: 'container_.*;'
+      # 컨테이너 아닌 cgroup(시스템 슬라이스 등)은 버림. 루트 cgroup(id="/", VM 전체)만 남긴다
+      - source_labels: [__name__, name, id]
+        regex: 'container_.*;;/.+'
         action: drop
 
   - job_name: prometheus

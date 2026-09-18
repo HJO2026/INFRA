@@ -105,7 +105,13 @@ services:
       - --collector.database_wraparound
       - --collector.long_running_transactions
       - --collector.stat_activity_autovacuum
+      - --collector.stat_checkpointer          # PG17+ 체크포인트 통계 (pg_stat_checkpointer)
+      - --collector.stat_bgwriter
+      - --collector.stat_database
       - --no-collector.stat_wal_receiver
+      - --extend.query-path=/etc/postgres_exporter/queries.yaml   # WAL 생성량, 대기 종류별 백엔드, 락 대기 (deprecated 플래그지만 v0.20 에서 동작)
+    volumes:
+      - ../monitoring/postgres_exporter/queries.yaml:/etc/postgres_exporter/queries.yaml:ro
     ports:
       - "127.0.0.1:${PGEXPORTER_HOST_PORT:-9187}:9187"
     cpuset: *mon-cpuset

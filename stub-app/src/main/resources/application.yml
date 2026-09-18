@@ -17,6 +17,9 @@ spring:
 server:
   port: 8080
   shutdown: graceful
+  tomcat:
+    mbeanregistry:
+      enabled: true           # tomcat_threads_* / tomcat_connections_* 지표 (대시보드 "톰캣 포화" 패널). impl 도 켜야 한다
 
 management:
   endpoints:

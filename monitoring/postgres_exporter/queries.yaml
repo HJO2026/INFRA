@@ -1,0 +1,53 @@
+# postgres_exporter 커스텀 쿼리 (--extend.query-path). 기본 컬렉터가 안 주는 PG 18 지표.
+# 지표 이름 = <키>_<컬럼>. 예: pg_stat_wal_wal_bytes, pg_wait_active_count
+pg_stat_wal:
+  query: "SELECT wal_records, wal_fpi, wal_bytes, wal_buffers_full FROM pg_stat_wal"
+  master: true
+  metrics:
+    - wal_records:
+        usage: "COUNTER"
+        description: "WAL 레코드 수"
+    - wal_fpi:
+        usage: "COUNTER"
+        description: "WAL full page image 수"
+    - wal_bytes:
+        usage: "COUNTER"
+        description: "생성된 WAL 바이트"
+    - wal_buffers_full:
+        usage: "COUNTER"
+        description: "WAL 버퍼 가득 참 횟수"
+
+pg_wait_active:
+  # 활성 백엔드의 대기 종류별 수. 대기 종류 목록을 고정해 0 도 내보낸다 (패널이 비지 않도록)
+  query: >
+    SELECT t.wait_event_type, COALESCE(a.n, 0) AS count
+    FROM (VALUES ('Lock'),('LWLock'),('IO'),('BufferPin'),('Client'),('Timeout'),('IPC'),('Activity'),('Extension')) AS t(wait_event_type)
+    LEFT JOIN (
+      SELECT wait_event_type, count(*) AS n FROM pg_stat_activity
+      WHERE datname = current_database() AND state = 'active' AND wait_event_type IS NOT NULL AND pid <> pg_backend_pid()
+      GROUP BY wait_event_type
+    ) AS a USING (wait_event_type)
+  master: true
+  metrics:
+    - wait_event_type:
+        usage: "LABEL"
+        description: "대기 종류"
+    - count:
+        usage: "GAUGE"
+        description: "해당 종류로 대기 중인 활성 백엔드 수 (Lock = 락 대기)"
+
+pg_lock_wait:
+  # 락을 기다리는 백엔드의 최장 대기 시간(초). 없으면 0
+  query: >
+    SELECT COALESCE(max(EXTRACT(EPOCH FROM (now() - query_start))), 0) AS max_seconds,
+           count(*) AS backends
+    FROM pg_stat_activity
+    WHERE datname = current_database() AND state = 'active' AND wait_event_type = 'Lock'
+  master: true
+  metrics:
+    - max_seconds:
+        usage: "GAUGE"
+        description: "락 대기 중인 백엔드의 최장 대기 시간(초)"
+    - backends:
+        usage: "GAUGE"
+        description: "락 대기 중인 백엔드 수"

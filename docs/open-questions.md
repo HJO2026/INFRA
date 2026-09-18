@@ -40,3 +40,16 @@
 - 왜: Docker Desktop 은 `/var/run` 디렉터리 마운트를 Mac 쪽 경로로 매핑해 docker.sock 을 못 찾고, cAdvisor v0.55 의 docker factory 는
   containerd 소켓과 `/var/lib/docker`(rw 레이어 식별) 가 없으면 컨테이너를 아예 등록하지 않는다. 이 구성으로 컨테이너별 CPU·메모리·디스크 IO 지표가 나온다
 - 되돌리려면: 리눅스 호스트에서 지표가 비면 표준 마운트(`/:/rootfs:ro`, `/var/run:/var/run:ro`, `/dev/disk/:/dev/disk:ro`)를 추가
+
+## 2026-09-18 / 6단계 / GC pause 패널을 optional 로, postgres_exporter 커스텀 쿼리
+- 정한 것: 대시보드 "GC pause" 두 패널은 `benchExpect=optional` (check-dashboard 가 비어 있어도 통과). 나머지 JVM 패널(allocation, heap, 스레드)은 필수
+- 왜: Micrometer `jvm_gc_pause_*` 는 첫 GC 이후에만 등록된다. 스텁 부하(50 req/s × 90s, 1GB 힙)로는 GC 가 한 번도 안 일어났다. 실제 워크로드에서는 나온다
+- 되돌리려면: `monitoring/grafana/gen-dashboard.py` 에서 expect 를 `stub` 으로 바꾸고 `make dashboard`
+- 정한 것: postgres_exporter 에 `--collector.stat_checkpointer`(PG17+ 체크포인트), `--extend.query-path` 커스텀 쿼리(`monitoring/postgres_exporter/queries.yaml`: WAL 생성량, 대기 종류별 백엔드, 락 대기 최장 시간)
+- 왜: 기본 컬렉터가 PG 18 의 pg_stat_checkpointer·pg_stat_wal 을 안 주고, "락 대기 시간" 은 PG 가 직접 노출하지 않아 pg_stat_activity 로 근사했다. `--extend.query-path` 는 deprecated 지만 v0.20.1 에서 동작한다
+- 되돌리려면: compose 의 해당 플래그·볼륨 삭제. exporter 를 올릴 때 플래그가 사라지면 커스텀 쿼리를 sql_exporter 등으로 옮긴다
+
+## 2026-09-18 / 6단계 / e2e 적재 지연 지표 이름 제안
+- 정한 것: 대시보드 "e2e 적재 지연" 패널은 Micrometer Timer `bench.ingest.e2e` (Prometheus 이름 `bench_ingest_e2e_seconds_bucket`) 를 읽는다. 아직 없는 지표라 `later`
+- 왜: study-spec 8장은 "컨슈머 Micrometer 타이머 또는 ingested_at 사후 집계" 라고만 했고 이름이 없다. 역할 1 에게 제안하는 인터페이스
+- 되돌리려면: 역할 1 이 다른 이름을 쓰면 gen-dashboard.py 의 쿼리만 교체
