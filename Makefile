@@ -16,7 +16,7 @@ TARGET ?= stub
 RUNS ?= 3
 
 .PHONY: help pin pin-check config lint build-stub up down down-v ps logs \
-        check-resources check-targets check-dashboard seed seed-stub-dump \
+        check-resources check-targets check-dashboard dashboard seed seed-stub-dump \
         preflight reset measure collect report test
 
 help: ## 타깃 목록
@@ -62,6 +62,9 @@ check-targets: ## Prometheus 타깃 전부 up 인지 확인
 
 check-dashboard: ## 대시보드 패널 쿼리를 Prometheus 에 실행해 결과 유무 출력
 	scripts/check-dashboard.sh
+
+dashboard: ## monitoring/grafana/gen-dashboard.py 로 대시보드 JSON 재생성
+	python3 monitoring/grafana/gen-dashboard.py
 
 seed: ## 덤프 복원 → VACUUM ANALYZE → 행 수 (SEED_PROFILE=S|M|L|stub)
 	scripts/seed.sh $(SEED_PROFILE)

@@ -64,3 +64,10 @@ measure:
   seed: 42                    # 난수 시드
   deviation_warn_pct: 15      # 회차 간 편차 경고 임계값
   k6_trend_stats: p(50),p(95),p(99),avg,max
+
+# 측정 대상(target). run-test.sh <target>[,<target>...] <runs> 의 이름. image 가 없으면 현재 APP_IMAGE(versions.env 또는 셸) 사용.
+# impl 레포 추가: 이름, image(태그 고정), scenario(k6/scenarios/<name>.js), override(impl 의 compose.override.yml 절대경로, 선택)
+targets:
+  stub:
+    image: bench/stub-app:dev
+    scenario: smoke
