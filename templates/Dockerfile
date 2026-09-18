@@ -30,8 +30,11 @@ RUN --mount=type=cache,target=/root/.gradle \
 
 # ---------- 2단계: 런타임 ----------
 FROM ${JDK_IMAGE} AS runtime
-# 비루트 실행. 컨테이너 안에서 파일을 쓸 일이 없다 (GC 로그는 stdout)
-RUN useradd --system --uid 10001 --create-home app
+# curl: compose healthcheck(/actuator/health) 용. 비루트 실행 (GC 로그는 stdout 이라 쓰기 권한 불필요)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --system --uid 10001 --create-home app
 USER app
 WORKDIR /app
 

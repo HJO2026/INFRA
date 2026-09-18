@@ -1,0 +1,66 @@
+# bench-infra 측정 설정. 스크립트가 읽는 값만 둔다 (scripts/lib/common.sh 의 cfg 함수).
+# 형식 제약: 2칸 들여쓰기, 스칼라와 문자열 배열만. 인라인 {}/[] 금지.
+
+postgres:
+  user: bench
+  db: bench
+  password: bench
+
+# 컨테이너별 리소스 예산 (docs/role-3.md). check-resources.sh 가 compose 설정과 docker inspect 를 이 표와 대조한다.
+# mem_limit 은 m 또는 g 단위 정수만 (1.25g 는 1280m 로 적는다).
+budget:
+  app:
+    cpuset: 0-3
+    mem_limit: 1280m
+  postgres:
+    cpuset: 0-3
+    mem_limit: 1g
+  kafka:
+    cpuset: 0-3
+    mem_limit: 1280m
+  redis:
+    cpuset: 0-3
+    mem_limit: 320m
+  k6:
+    cpuset: 4-5
+    mem_limit: 1g
+  prometheus:
+    cpuset: 6
+    mem_limit: 512m
+  grafana:
+    cpuset: 6
+    mem_limit: 256m
+  cadvisor:
+    cpuset: 6
+    mem_limit: 256m
+  postgres_exporter:
+    cpuset: 6
+    mem_limit: 64m
+
+# preflight 임계값
+preflight:
+  min_vm_cpus: 7
+  min_vm_mem_mib: 7600        # Docker Desktop 8GB 할당은 docker info 기준 약 7.66GiB 로 보인다
+  min_disk_free_gib: 10       # 경고만. study-spec 은 60GB 이상 권장 (docs/open-questions.md)
+
+# reset.sh 가 회차 전에 TRUNCATE 할 테이블. 실제 스키마가 오면 역할 1 의 테이블명으로 교체한다.
+# 스텁 앱 테이블은 app 재시작 시 data.sql 이 기본 행 1개를 다시 넣는다.
+reset:
+  truncate_tables:
+    - stub_ping
+  restart_services:
+    - postgres
+    - app
+  vacuum_analyze: true
+
+# 측정 절차 (study-spec 8장)
+measure:
+  warmup_seconds: 30
+  steady_seconds: 60
+  cooldown_seconds: 60        # 회차 사이 쿨다운 (스펙 1~2분. 스텁 검증은 60초)
+  rate: 50                    # constant-arrival-rate 초당 반복 수 (스텁 smoke 기준)
+  pre_allocated_vus: 50
+  max_vus: 200
+  seed: 42                    # 난수 시드
+  deviation_warn_pct: 15      # 회차 간 편차 경고 임계값
+  k6_trend_stats: p(50),p(95),p(99),avg,max

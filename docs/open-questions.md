@@ -20,3 +20,16 @@
 - 정한 것: `docs/role-3.md` 와 내용이 같은 루트 `role-3.md` 는 `.gitignore` 로 제외 (삭제하지 않음)
 - 왜: 내가 만든 파일이 아니고 삭제는 되돌리기 어렵다. 진실의 원천은 `docs/` 아래
 - 되돌리려면: 루트 파일을 지우고 `.gitignore` 의 `/role-3.md` 줄 삭제
+
+## 2026-09-18 / 2단계 / 호스트 포트 변수화, PG 기본 15432
+- 정한 것: compose 의 호스트 포트를 `PG_HOST_PORT`(기본 15432), `APP_HOST_PORT`(기본 8080) 변수로. 컨테이너 안 포트는 5432/8080 그대로
+- 왜: 이 호스트에서 다른 프로젝트의 컨테이너(`postgres_db`)가 5432 를 점유하고 있어 `make up` 이 실패했다. 남의 컨테이너를 멈추는 건 되돌리기 어렵다.
+  k6·exporter 는 compose 네트워크 안에서 서비스명으로 붙으므로 측정에는 영향 없음
+- 되돌리려면: `PG_HOST_PORT=5432 make up` 또는 compose 기본값 수정
+- 참고: 측정 중에는 다른 프로젝트 컨테이너(kafka-ui, mysql_db, postgres_db)가 같은 VM 의 CPU·메모리를 쓴다. preflight 가 경고한다 (5단계)
+
+## 2026-09-18 / 2단계 / 앱 이미지 템플릿에 curl 추가, memswap_limit 고정
+- 정한 것: `templates/Dockerfile` 런타임 스테이지에 `curl` 설치. compose healthcheck 가 `/actuator/health/readiness` 를 curl 로 확인.
+  모든 SUT·k6 컨테이너에 `memswap_limit` = `mem_limit` 지정 (스왑 사용 금지)
+- 왜: `eclipse-temurin:25-jdk` 에는 curl·wget 이 없다. 스왑을 막아야 mem_limit 초과 시 동작(OOM)이 호스트마다 같다
+- 되돌리려면: Dockerfile 의 apt-get 줄 삭제 + healthcheck 를 bash `/dev/tcp` 방식으로 교체. memswap_limit 줄 삭제

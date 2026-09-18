@@ -10,7 +10,7 @@ export REPO_ROOT
 VERSIONS_ENV="${VERSIONS_ENV:-$REPO_ROOT/versions.env}"
 BENCH_CONFIG="${BENCH_CONFIG:-$REPO_ROOT/bench.config.yml}"
 COMPOSE_BASE="$REPO_ROOT/compose/compose.base.yml"
-COMPOSE_MON="$REPO_ROOT/compose/compose.monitoring.yml"
+COMPOSE_MON="$REPO_ROOT/compose/compose.monitoring.yml"   # 3단계에서 생김. 없으면 건너뜀
 # impl 레포 override 파일. 여러 개면 콜론(:)으로 구분
 COMPOSE_OVERRIDE="${COMPOSE_OVERRIDE:-}"
 export TZ=UTC
@@ -44,7 +44,8 @@ load_versions() {
 
 # docker compose 공통 호출. 인자는 compose 하위 명령
 compose() {
-  local args=(--env-file "$VERSIONS_ENV" -f "$COMPOSE_BASE" -f "$COMPOSE_MON")
+  local args=(--env-file "$VERSIONS_ENV" -f "$COMPOSE_BASE")
+  [[ -f "$COMPOSE_MON" ]] && args+=(-f "$COMPOSE_MON")
   if [[ -n "$COMPOSE_OVERRIDE" ]]; then
     local f
     IFS=':' read -ra _files <<< "$COMPOSE_OVERRIDE"
@@ -113,15 +114,16 @@ container_id() {
 }
 
 wait_healthy() {
-  # wait_healthy <service> <timeout_sec>
+  # wait_healthy <service> [timeout_sec]  : healthcheck 가 있으면 healthy, 없으면 running 까지 대기
   local svc="$1" timeout="${2:-120}" i cid status
   for ((i = 0; i < timeout; i++)); do
     cid="$(container_id "$svc")"
     if [[ -n "$cid" ]]; then
       status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")"
-      if [[ "$status" == "healthy" || "$status" == "running" && "$(docker inspect --format '{{if .State.Health}}1{{end}}' "$cid")" == "" ]]; then
-        return 0
-      fi
+      case "$status" in
+        healthy|running) return 0 ;;
+        exited|dead) die "$svc 컨테이너가 종료됨 (status=$status). docker compose logs $svc 확인" ;;
+      esac
     fi
     sleep 1
   done

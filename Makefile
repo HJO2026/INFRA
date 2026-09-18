@@ -4,7 +4,7 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
 VERSIONS_ENV ?= versions.env
-COMPOSE_FILES := -f compose/compose.base.yml -f compose/compose.monitoring.yml
+COMPOSE_FILES := -f compose/compose.base.yml $(if $(wildcard compose/compose.monitoring.yml),-f compose/compose.monitoring.yml)
 # impl 레포의 compose.override.yml 등을 붙일 때: make up COMPOSE_OVERRIDE=/path/a.yml:/path/b.yml
 COMPOSE_OVERRIDE ?=
 COMPOSE_EXTRA := $(foreach f,$(subst :, ,$(COMPOSE_OVERRIDE)),-f $(f))

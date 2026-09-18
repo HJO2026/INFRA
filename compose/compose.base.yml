@@ -1,0 +1,95 @@
+# bench-infra 기본 스택: SUT(app, postgres) + 부하 생성기(k6, profile). 모니터링은 compose.monitoring.yml.
+# 실행: docker compose --env-file versions.env -f compose/compose.base.yml [-f compose/compose.monitoring.yml] up -d
+# 리소스 예산: docs/role-3.md (bench.config.yml 의 budget 과 동일해야 한다. check-resources.sh 가 대조)
+name: bench
+
+x-sut-cpuset: &sut-cpuset "0-3"
+x-k6-cpuset: &k6-cpuset "4-5"
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    container_name: bench-postgres
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bench}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bench}
+      POSTGRES_DB: ${POSTGRES_DB:-bench}
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      # postgres 18 이미지는 볼륨 루트가 /var/lib/postgresql (PGDATA=/var/lib/postgresql/18/docker)
+      - pgdata:/var/lib/postgresql
+      - ../postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ../seed/dumps:/seed:ro
+    ports:
+      # 호스트 포트는 변수. 이 호스트에서 5432 는 다른 프로젝트 컨테이너가 쓰고 있어 기본값을 15432 로 둔다
+      - "127.0.0.1:${PG_HOST_PORT:-15432}:5432"
+    cpuset: *sut-cpuset
+    mem_limit: 1g
+    memswap_limit: 1g
+    shm_size: 256m
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bench} -d ${POSTGRES_DB:-bench} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    networks: [bench]
+
+  app:
+    image: ${APP_IMAGE}
+    container_name: bench-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bench}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-bench}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-bench}
+      # JVM 옵션은 여기서만 주입한다 (Dockerfile 하드코딩 금지). 기본값: docs/role-3.md
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms1g -Xmx1g -XX:+UseG1GC -Xlog:gc}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${APP_HOST_PORT:-8080}:8080"
+    cpuset: *sut-cpuset
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"UP\"'"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 20s
+    networks: [bench]
+
+  # 부하 생성기. `up` 으로는 뜨지 않고 measure.sh 가 `compose --profile k6 run --rm k6 ...` 로 회차마다 실행한다
+  k6:
+    image: ${K6_IMAGE}
+    profiles: [k6]
+    environment:
+      TZ: UTC
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: ${K6_PROMETHEUS_RW_TREND_STATS:-p(50),p(95),p(99),avg,max}
+      K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "false"
+      BASE_URL: http://app:8080
+    volumes:
+      - ../k6:/k6:ro
+      - ../results:/results
+    working_dir: /k6
+    cpuset: *k6-cpuset
+    mem_limit: 1g
+    memswap_limit: 1g
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [bench]
+
+volumes:
+  pgdata:
+
+networks:
+  bench:
+    name: bench
