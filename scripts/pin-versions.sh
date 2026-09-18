@@ -2,7 +2,7 @@
 # versions.env 의 *_IMAGE 태그마다 레지스트리에서 매니페스트 digest 를 조회해 *_DIGEST 를 채운다.
 # 멱등: 이미 같은 값이면 파일이 바뀌지 않는다. 로컬 빌드 이미지(APP_IMAGE)는 건너뛴다.
 # 사용: scripts/pin-versions.sh [--check]   (--check 는 갱신 없이 불일치만 보고)
-# shellcheck source=scripts/lib/common.sh
+# shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
 require_cmd docker
 
