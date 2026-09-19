@@ -10,6 +10,10 @@
 - `docs/open-questions.md`: 결정이 필요한데 막힌 것을 기록하는 곳
 - `docs/progress.md`: 단계별 진행 결과 (작업하면서 갱신)
 
+## 외부 레포
+- 스프링 앱: `/Users/heo/async/project/HJO/APP` (Makefile 기본 `APP_DIR=../APP`). 이미지는 그 레포의 `Dockerfile`로 `make build-app`
+- 시드 데이터: APP 레포 `feat/seed-data` 브랜치의 `seed/` (생성기 방식, `seed/seed.sh s|m|l`). bench-infra에는 시드 생성·복원 코드를 두지 않는다
+
 ## 불변 규칙
 - 이미지 태그는 명시 버전만. `latest` 금지. `versions.env`에 태그와 digest를 같이 기록
 - 측정 로직은 `Makefile`과 `scripts/`에만 둔다. CI 워크플로가 생기더라도 `make` 호출만 한다
@@ -20,17 +24,15 @@
 - 스키마, 마이그레이션, API 코드, 시드 생성 로직은 범위 밖. 수정하지 말고 경로와 변수로 연결 지점만 둔다
 - 공통 규약(API, 스키마, 측정 절차)을 임의로 바꾸지 않는다. 필요하면 open-questions에 기록
 
-## 디렉터리 (설계서 v3 기준, monitoring/templates/stub-app 추가)
+## 디렉터리 (설계서 v3 기준, monitoring/templates 추가)
 ```
 compose/            compose.base.yml, compose.monitoring.yml, profiles(kafka, redis는 나중)
 postgres/           postgresql.conf (baseline 값). 스키마는 넣지 않음
 monitoring/         prometheus/, grafana/{provisioning,dashboards}/
-k6/{lib,scenarios}  러너 공통 코드와 smoke 시나리오. 실제 워크로드 시나리오는 미결
+k6/{lib,scenarios}  러너 공통 코드. 실제 워크로드 시나리오는 미결
 verify/             뼈대만 (내용은 미결)
-scripts/            preflight, reset, seed, measure, collect, report, check-*
+scripts/            preflight, reset, measure, collect, report, build-app, check-*
 templates/          impl 레포가 복사해 갈 Dockerfile, compose.override.yml 예시
-stub-app/           파이프라인 검증용 최소 Spring Boot 앱. 실제 구현 아님
-seed/dumps/         덤프 파일 위치 (git 제외). 스텁 덤프만 생성 가능
 results/            측정 결과 (git 제외, 리포트 md만 커밋 가능)
 versions.env, bench.config.yml, Makefile, run-test.sh
 ```
@@ -59,7 +61,7 @@ versions.env, bench.config.yml, Makefile, run-test.sh
 - ...
 ```
 - type: `feat` 기능, `fix` 버그, `chore` 설정·빌드·버전, `docs` 문서, `refactor` 동작 불변 정리, `perf` 성능, `test` 검증 스크립트
-- scope: 바뀐 영역 하나. `compose`, `docker`, `monitoring`, `grafana`, `prometheus`, `k6`, `postgres`, `scripts`, `seed`, `stub-app`, `templates`, `docs`, `make` 등
+- scope: 바뀐 영역 하나. `compose`, `docker`, `monitoring`, `grafana`, `prometheus`, `k6`, `postgres`, `scripts`, `templates`, `docs`, `make` 등
 - 요약: 한국어, 한 줄, 마침표 없음. 핵심 변경을 쉼표로 나열해도 된다
 - 본문: 요약 다음 빈 줄 하나 뒤에 `- ` 불릿 (빈 줄이 없으면 git이 본문까지 제목으로 취급해 `git log --oneline`이 깨진다). 한 불릿에 한 가지. 기본값·대체 동작 같은 주의점은 괄호로
 - 단계 완료 커밋도 같은 형식을 쓰고 본문 첫 불릿에 `stage N 완료`를 적는다

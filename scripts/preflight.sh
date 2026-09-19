@@ -53,7 +53,7 @@ if docker image inspect "$APP_IMAGE" >/dev/null 2>&1; then
 elif docker pull -q "$APP_IMAGE" >/dev/null 2>&1; then
   ok "APP_IMAGE $APP_IMAGE pull"
 else
-  fail "APP_IMAGE 없음: $APP_IMAGE (스텁이면 make build-stub)"
+  fail "APP_IMAGE 없음: $APP_IMAGE (make build-app)"
 fi
 
 # --- 컨테이너 상태 ---

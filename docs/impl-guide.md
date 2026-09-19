@@ -15,7 +15,7 @@ impl 레포는 **이미지, `compose.override.yml`, 마이그레이션** 만 제
 | 시간대 | 컨테이너 `TZ=UTC`. 앱도 UTC 로 동작해야 한다 |
 | 로깅 | study-spec 4장 수준(`root: WARN`). 동기 로깅이면 문서화 |
 
-대시보드 패널이 채워지려면 앱 설정에 아래가 필요하다 (스텁 앱 `stub-app/src/main/resources/application.yml` 참고):
+대시보드 패널이 채워지려면 앱 설정에 아래가 필요하다:
 
 ```yaml
 management:
@@ -50,7 +50,7 @@ docker build -t bench/impl-<name>:v1 --build-arg JDK_IMAGE=eclipse-temurin:25-jd
 targets:
   impl-<name>:
     image: bench/impl-<name>:v1
-    scenario: smoke                      # k6/scenarios/<scenario>.js (실제 워크로드 시나리오는 미결)
+    scenario: <scenario>                 # k6/scenarios/<scenario>.js (실제 워크로드 시나리오는 미결)
     override: /abs/path/impl-<name>/compose.override.yml   # 추가 컴포넌트가 있을 때만
 ```
 
@@ -71,11 +71,10 @@ targets:
 ## 5. 스키마·시드 (역할 1·2)
 
 - 스키마·마이그레이션은 impl 이미지가 시작할 때 스스로 적용한다 (Flyway 등). bench-infra 는 스키마를 만들지 않는다.
-- 시드 덤프는 `seed/dumps/<S|M|L>.dump` 에 둔다. 형식: `pg_dump -Fc -Z 6` (스키마 + 데이터, 전체 DB). `make seed SEED_PROFILE=M` 이
-  `pg_restore -j 4 --clean --if-exists --no-owner` → `VACUUM ANALYZE` → 테이블별 행 수 순으로 복원한다.
-  덤프에 스키마가 포함되어야 `--clean` 이 깨끗하게 동작한다. 앱은 복원 중 잠시 멈췄다 다시 뜬다.
-- 회차마다 비우는 "측정 대상 테이블" 은 `bench.config.yml reset.truncate_tables` 에 있다. 지금은 스텁 테이블(`stub_ping`) 이고,
-  실제 스키마가 확정되면 `post_view_events`, `post_likes` 등으로 교체한다 (역할 1 이 알려 줄 것).
+- 시드는 앱 레포의 `seed/` 생성기가 만든다 (덤프 배포 아님, `seed/README.md`). bench-infra 에는 시드 생성·복원 코드가 없다.
+  측정용 postgres 로 옮기는 방법은 미정 (`docs/open-questions.md`).
+- 회차마다 비우는 "측정 대상 테이블" 은 `bench.config.yml reset.truncate_tables` 에 둔다. 지금은 비어 있고,
+  측정 대상이 확정되면 `post_view_events`, `post_likes` 등을 넣는다 (역할 1 이 알려 줄 것).
 
 ## 6. 결과 읽기
 

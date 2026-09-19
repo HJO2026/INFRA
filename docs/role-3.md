@@ -4,21 +4,21 @@
 - compose (base + monitoring, 이후 kafka/redis 프로파일 자리만)
 - 컨테이너별 cpuset·메모리 제한, PG 설정 파일(baseline 값은 study-spec 5장)
 - 모니터링 스택: Prometheus, Grafana(프로비저닝), cAdvisor, postgres_exporter
-- 측정 절차 스크립트: preflight, reset, seed 복원, measure, collect, report, `run-test.sh`
+- 측정 절차 스크립트: preflight, reset, measure, collect, report, `run-test.sh`
 - 공통 Grafana 대시보드 JSON (study-spec 8장 지표 목록)
-- 앱 Dockerfile 템플릿 + 파이프라인 검증용 스텁 앱
+- 앱 Dockerfile 템플릿 (스텁 앱은 2026-09-20 제거, 앱은 `../APP`)
 - 사용 문서 (README, impl 레포 연결 가이드)
 
 ## 범위 밖 (수정 금지)
 - 스프링 앱 코드, 스키마·마이그레이션, contract-tests, broken-impls: 역할 1
-- 시드 생성 스크립트, S/M/L 덤프: 역할 2
+- 시드 생성 스크립트와 데이터: 역할 2 (앱 레포 `feat/seed-data`의 `seed/`)
 - 경계 애매, 러너와 뼈대만 만들고 내용은 TODO로 남김: k6 실제 워크로드 시나리오(워크로드 미결), verify 스크립트 내용
 
 ## 외부 인터페이스
-| 대상 | 연결 방식 | 기본값 (스텁) |
+| 대상 | 연결 방식 | 기본값 |
 |---|---|---|
-| 앱 이미지 | 환경변수 `APP_IMAGE` | `bench/stub-app:dev` |
-| 시드 덤프 | `SEED_PROFILE` → `seed/dumps/<PROFILE>.dump` (`pg_dump -Fc`) | 스텁 앱 테이블로 만든 `stub.dump` |
+| 앱 이미지 | 환경변수 `APP_IMAGE`, `make build-app APP_DIR=<앱 레포>` | `hjo-app:dev`, `../APP` |
+| 시드 데이터 | 앱 레포 `seed/seed.sh s\|m\|l` (생성기) | 측정용 postgres 연결 방법 미정 |
 | impl 추가 컴포넌트 | impl 레포의 `compose.override.yml`을 `-f`로 합침 | 없음 |
 
 앱 이미지 계약 (study-spec 10장): 포트 8080, `/actuator/health`와 `/actuator/prometheus` 노출,

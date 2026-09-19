@@ -11,18 +11,17 @@ COMPOSE_EXTRA := $(foreach f,$(subst :, ,$(COMPOSE_OVERRIDE)),-f $(f))
 COMPOSE := docker compose --env-file $(VERSIONS_ENV) $(COMPOSE_FILES) $(COMPOSE_EXTRA)
 export COMPOSE_OVERRIDE
 
-SEED_PROFILE ?= stub
-TARGET ?= stub
+TARGET ?=
 RUNS ?= 3
 
-.PHONY: help pin pin-check config lint build-stub up down down-v ps logs \
-        check-resources check-targets check-dashboard dashboard seed seed-stub-dump \
+.PHONY: help pin pin-check config lint build-app up down down-v ps logs \
+        check-resources check-targets check-dashboard dashboard \
         preflight reset measure collect report test
 
 help: ## 타깃 목록
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo
-	@echo "  변수: SEED_PROFILE=$(SEED_PROFILE) TARGET=$(TARGET) RUNS=$(RUNS) APP_IMAGE=$${APP_IMAGE:-(versions.env)} COMPOSE_OVERRIDE=$(COMPOSE_OVERRIDE)"
+	@echo "  변수: TARGET=$(TARGET) RUNS=$(RUNS) APP_IMAGE=$${APP_IMAGE:-(versions.env)} COMPOSE_OVERRIDE=$(COMPOSE_OVERRIDE)"
 
 pin: ## versions.env 의 이미지 digest 를 레지스트리에서 조회해 채운다
 	scripts/pin-versions.sh
@@ -36,8 +35,8 @@ config: ## compose 설정 검증 (문법·변수 치환)
 lint: ## shellcheck
 	shellcheck scripts/*.sh scripts/lib/*.sh run-test.sh && echo "shellcheck OK"
 
-build-stub: ## 템플릿 Dockerfile 로 스텁 앱 이미지 빌드 (bench/stub-app:dev)
-	scripts/build-stub.sh
+build-app: ## 앱 레포(APP_DIR, 기본 ../APP)의 Dockerfile 로 APP_IMAGE 빌드
+	scripts/build-app.sh
 
 up: ## SUT + 모니터링 기동 후 healthy 대기
 	scripts/up.sh
@@ -65,12 +64,6 @@ check-dashboard: ## 대시보드 패널 쿼리를 Prometheus 에 실행해 결�
 
 dashboard: ## monitoring/grafana/gen-dashboard.py 로 대시보드 JSON 재생성
 	python3 monitoring/grafana/gen-dashboard.py
-
-seed: ## 덤프 복원 → VACUUM ANALYZE → 행 수 (SEED_PROFILE=S|M|L|stub)
-	scripts/seed.sh $(SEED_PROFILE)
-
-seed-stub-dump: ## 스텁 앱 테이블로 seed/dumps/stub.dump 생성
-	scripts/make-stub-dump.sh
 
 preflight: ## VM 리소스, 디스크, 이미지 digest, 컨테이너 상태 점검
 	scripts/preflight.sh

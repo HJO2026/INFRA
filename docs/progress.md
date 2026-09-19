@@ -60,9 +60,18 @@
 
 ## 역할 2 (시드) 에게 전달할 인터페이스 요구사항
 
+> 2026-09-20: 시드는 덤프 대신 앱 레포 `seed/` 생성기로 바뀌어 아래 덤프 관련 항목은 폐기. 연결 방식은 open-questions 참고
+
 - **덤프 형식**: `pg_dump -Fc -Z 6` 로 **전체 DB(스키마 + 데이터)**. 파일명 `seed/dumps/S.dump`, `M.dump`, `L.dump`. DB·유저 `bench`
 - **복원 방식** (`scripts/seed.sh`): `pg_restore -j 4 --clean --if-exists --no-owner --no-privileges --exit-on-error` → `VACUUM ANALYZE` → 테이블별 행 수. `--exit-on-error` 라 덤프 안의 확장·롤 의존이 있으면 실패한다. 확장이 필요하면 미리 알려 줄 것
 - **검증 값**: 배포 시 테이블별 행 수와 파일 sha256 을 같이 준다 (seed.sh 가 출력하는 표와 대조)
 - **ERD 불일치**(study-spec 11장: `boards`, `post_stats` vs `users`) 는 역할 1 과 정리해야 `reset.truncate_tables` 와 k6 키 분포를 채울 수 있다
 - **k6 키 분포 파라미터**: 인기 글 ID 범위, Zipf 파라미터, 사용자 ID 범위. `k6/lib/common.js` 의 시드 고정 난수(`makeRng`)로 재현 가능하게 만들 자리는 있다
 - **용량**: M 6~8GB, L 25~35GB 면 Docker Desktop 디스크(현재 30GB) 를 먼저 늘려야 한다
+
+## 이후 변경
+
+| 날짜 | 내용 |
+|---|---|
+| 2026-09-20 | 스텁 앱·덤프 기반 시드 제거 (`stub-app/`, `seed/`, `scripts/{build-stub,seed,make-stub-dump}.sh`, `k6/scenarios/smoke.js`). `make build-app` 추가(`../APP`). 위 단계 1·4·5 기록은 당시 스텁 기준. 남은 연결 작업은 open-questions |
+
