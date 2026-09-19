@@ -56,7 +56,7 @@ healthcheck 는 이미지에 curl 이 없어 `bash` 의 `/dev/tcp` 로 친다 (`
 ### 2. compose base
 postgres(`postgres/postgresql.conf`: shared_buffers 256MB, max_connections 30, work_mem 4MB, UTC), app.
 cpuset·mem_limit은 예산표대로. healthcheck 포함.
-- 판정: `make up` 후 전부 healthy, `scripts/check-resources.sh`가 `docker inspect`로 CpusetCpus·Memory를 예산표와 대조해 통과,
+- 판정: `docker compose up -d --wait` 후 전부 healthy, `scripts/check-resources.sh`가 `docker inspect`로 CpusetCpus·Memory를 예산표와 대조해 통과,
   `curl /actuator/prometheus`에 `hikaricp_` 지표 존재
 
 ### 3. 모니터링
@@ -89,4 +89,4 @@ study-spec 8장 지표 목록 전부 패널로. 지금 없는 지표(Kafka 등)�
 
 ### 7. 문서
 `README.md`(사전 준비, 명령 사용법), `docs/impl-guide.md`(impl 레포가 Dockerfile 복사하고 override 붙이는 법, 이미지 계약).
-- 판정: README 명령만 따라 `make down -v` 후 처음부터 단계 2~5 재현 성공
+- 판정: README 명령만 따라 `docker compose down -v` 후 처음부터 단계 2~5 재현 성공

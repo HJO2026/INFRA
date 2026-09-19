@@ -81,3 +81,13 @@
 - 되돌리려면: compose 의 환경변수 이름·healthcheck 블록을 이전 커밋에서 되살린다. `.env` 는 지우면 그만이다 (compose 는 없으면 건너뛴다)
 - 남은 것: k6 시나리오와 `bench.config.yml targets` 는 여전히 비어 있다. 앱의 readiness probe 를 켜면 `APP_HEALTH_PATH` 를 `/actuator/health/readiness` 로 바꾼다
 
+## 2026-09-20 / 사용성 / 컨테이너 조작은 make 를 거치지 않는다
+- 정한 것: 루트에 `compose.yaml` 추가 (`include` 로 `compose/` 아래 두 파일, `env_file: versions.env`).
+  `docker compose up -d --wait|ps|logs|down|config` 가 플래그 없이 그대로 된다.
+  Makefile 에서 `up`·`down`·`down-v`·`ps`·`logs`·`config` 타깃과 `scripts/up.sh` 삭제. `make` 는 측정 절차(여러 단계를 순서대로)만 담당
+- 왜: 기동·정지 같은 표준 동작까지 make 로 감싸면 docker 사용법을 알아도 이 레포의 사용법을 새로 익혀야 한다.
+  `--env-file`·`-f` 조합을 감추려고 만든 래퍼였는데, `include` + `env_file` 로 compose 자체가 해결한다.
+  healthy 대기는 compose 내장 `--wait` 로 충분해 `up.sh` 도 필요 없다
+- 확인: 루트 `.env` 가 `versions.env` 를 덮어쓰는 순서까지 동작 확인. `docker compose config -q`, `check-resources`, `check-targets` 통과
+- 되돌리려면: `compose.yaml` 을 지우면 이전처럼 `-f compose/compose.base.yml -f compose/compose.monitoring.yml --env-file versions.env` 를 붙여야 한다
+

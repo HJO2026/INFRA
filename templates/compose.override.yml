@@ -1,5 +1,6 @@
 # impl 레포용 compose.override.yml 예시. impl 레포 루트에 두고 bench-infra 에서 이렇게 합친다:
-#   make up COMPOSE_OVERRIDE=/abs/path/impl-<name>/compose.override.yml
+#   docker compose -f compose.yaml -f /abs/path/impl-<name>/compose.override.yml up -d --wait
+#   (측정 스크립트에 넘길 때는 make reset COMPOSE_OVERRIDE=/abs/path/impl-<name>/compose.override.yml)
 #   ./run-test.sh impl-<name> 3      (bench.config.yml targets.<name>.override 에 경로를 적어 두면 자동)
 #
 # 규칙 (docs/study-spec.md 3·5장, docs/role-3.md 예산표):

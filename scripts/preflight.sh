@@ -59,7 +59,7 @@ fi
 # --- 컨테이너 상태 ---
 for svc in $(compose config --services); do
   cid="$(container_id "$svc")"
-  if [[ -z "$cid" ]]; then fail "$svc 컨테이너 없음 (make up)"; continue; fi
+  if [[ -z "$cid" ]]; then fail "$svc 컨테이너 없음 (docker compose up -d --wait)"; continue; fi
   st="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")"
   case "$st" in healthy|running) ok "$svc $st" ;; *) fail "$svc $st" ;; esac
 done
