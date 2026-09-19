@@ -59,6 +59,16 @@ docker compose up -d --wait
 #    호스트 5432 가 다른 컨테이너에 잡혀 있으면 PGPORT 로 피한다 (docker ps 로 확인)
 PGPORT=55432 bash ../APP/seed/seed.sh s
 
+# 1-1) 이 컴퓨터에서 처음 돌리는 경우에만: 위 명령이 "[완료]" 없이 조용히 끝난다.
+#      템플릿(seed_s)은 만들어졌는데 작업용 bench 복제가 안 된 상태다 (아래 주의 참고).
+#      한 번만 직접 만들어 주면 그다음부터는 seed.sh 가 알아서 한다
+docker compose -f ../APP/seed/compose.seed.yml exec -T postgres \
+  psql -U hjo -d postgres -c "CREATE DATABASE bench TEMPLATE seed_s STRATEGY FILE_COPY"
+
+# 1-2) 확인: profile=s 와 posts=50000 이 나오면 시드 쪽은 끝
+docker compose -f ../APP/seed/compose.seed.yml exec -T postgres \
+  psql -U hjo -d bench -tAc "SELECT 'profile='||profile FROM seed_meta"
+
 # 2) app 을 멈춘다. 접속 세션이 남아 있으면 --clean 이 실패한다
 docker compose stop app
 
@@ -69,6 +79,11 @@ docker compose -f ../APP/seed/compose.seed.yml exec -T postgres pg_dump -U hjo -
 # 4) 통계 갱신 후 app 재시작
 docker compose exec -T postgres psql -U bench -d bench -c 'VACUUM ANALYZE'
 docker compose start app
+
+# 5) 확인: posts 50000 / users 15000 (S 기준), app 이 healthy
+docker compose exec -T postgres psql -U bench -d bench -c \
+  "SELECT 'posts' t, count(*) FROM posts UNION ALL SELECT 'users', count(*) FROM users"
+docker compose ps
 ```
 
 - **명령을 변수에 넣지 말 것.** `DC="docker compose"` 후 `$DC ps` 는 zsh 에서 `command not found: docker compose` 가 난다
@@ -78,6 +93,12 @@ docker compose start app
 - 복원 후 `VACUUM ANALYZE` 는 필수다 (통계가 없으면 실행 계획이 달라져 측정이 무의미해진다)
 - 덤프에는 `flyway_schema_history` 가 들어 있어서, 복원 뒤 앱이 다시 떠도 마이그레이션을 재적용하지 않는다
 - 규모를 바꿀 때마다 1)~4)를 다시 한다. 앱 레포 쪽은 템플릿이 이미 있으면 복제만 해서 빠르다
+
+> **주의 (앱 레포 시드 스크립트 버그).** `seed.sh` 의 `switch_to` 는 첫 줄에서 기존 `bench` 의 프로파일을 읽는데,
+> 처음 돌리는 컴퓨터에는 `bench` 가 없어 이 명령이 실패한다. 스크립트가 `set -euo pipefail` 이라 **메시지 없이 즉시 종료**되고
+> (`2>/dev/null` 이 에러까지 삼킨다), `seed_s` 는 있는데 `bench` 는 없는 상태로 남는다.
+> 그래서 1-1) 이 필요하다. `bench` 가 한 번 생기고 나면 이후 실행은 정상이다.
+> `m`, `l` 은 템플릿 이름이 `seed_m`, `seed_l` 이다. 고친다면 그 줄 끝에 `|| true` 를 붙이면 된다.
 
 컨테이너 안으로 **스크립트를 한 줄로 밀어 넣는** 방법 (위 2)와 같은 패턴):
 
