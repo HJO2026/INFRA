@@ -97,3 +97,5 @@ chore(docker): Temurin 25 고정 2단계 빌드 Dockerfile, JAVA_OPTS 주입, GC
 - postgres 18 공식 이미지는 PGDATA 기본 경로가 바뀌었다(버전별 하위 디렉터리). 볼륨 마운트 위치를 이미지 문서로 확인할 것
 - macOS Docker Desktop에서 cAdvisor는 일부 지표(디스크 IO 등)가 비거나 부정확할 수 있다. 컨테이너별 CPU·메모리가 나오면 통과로 본다
 - `dropped_iterations`가 0이 아니면 그 회차는 무효. k6 요약 JSON에서 확인
+- 문서에 셸 명령을 적을 때 `DC="docker compose"` 같은 변수 래핑 금지. 사용자 셸이 zsh라 `$DC ps`가 `command not found: docker compose`로 죽는다 (zsh는 변수를 단어로 쪼개지 않음)
+- 호스트 5432는 다른 프로젝트 컨테이너(`postgres_db`)가 점유 중. 앱 레포 시드는 `PGPORT=55432`로 피한다
