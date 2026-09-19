@@ -6,10 +6,11 @@ source "$(dirname "$0")/lib/common.sh"
 require_cmd docker jq
 load_versions
 
-TARGET="${1:-${TARGET:-stub}}"
+TARGET="${1:-${TARGET:-}}"
+[[ -n "$TARGET" ]] || die "target 이 필요하다: scripts/measure.sh <target> (bench.config.yml targets)"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-$TARGET}"
 RUN_NO="${RUN_NO:-1}"
-SCENARIO="$(cfg "targets.$TARGET.scenario" 2>/dev/null || echo smoke)"
+SCENARIO="$(cfg "targets.$TARGET.scenario" 2>/dev/null)" || die "bench.config.yml targets.$TARGET.scenario 없음"
 [[ -f "$REPO_ROOT/k6/scenarios/$SCENARIO.js" ]] || die "시나리오 없음: k6/scenarios/$SCENARIO.js"
 ov="$(cfg "targets.$TARGET.override" 2>/dev/null || true)"; [[ -n "$ov" ]] && export COMPOSE_OVERRIDE="$ov"
 

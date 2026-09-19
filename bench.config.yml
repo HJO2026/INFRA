@@ -43,11 +43,9 @@ preflight:
   min_vm_mem_mib: 7600        # Docker Desktop 8GB 할당은 docker info 기준 약 7.66GiB 로 보인다
   min_disk_free_gib: 10       # 경고만. study-spec 은 60GB 이상 권장 (docs/open-questions.md)
 
-# reset.sh 가 회차 전에 TRUNCATE 할 테이블. 실제 스키마가 오면 역할 1 의 테이블명으로 교체한다.
-# 스텁 앱 테이블은 app 재시작 시 data.sql 이 기본 행 1개를 다시 넣는다.
+# reset.sh 가 회차 전에 TRUNCATE 할 테이블 (truncate_tables 문자열 배열). 측정 대상 테이블이 확정되면 추가한다.
+# 비워 두면 TRUNCATE 없이 VACUUM ANALYZE 와 재시작만 한다.
 reset:
-  truncate_tables:
-    - stub_ping
   restart_services:
     - postgres
     - app
@@ -57,8 +55,8 @@ reset:
 measure:
   warmup_seconds: 30
   steady_seconds: 60
-  cooldown_seconds: 60        # 회차 사이 쿨다운 (스펙 1~2분. 스텁 검증은 60초)
-  rate: 50                    # constant-arrival-rate 초당 반복 수 (스텁 smoke 기준)
+  cooldown_seconds: 60        # 회차 사이 쿨다운 (스펙 1~2분)
+  rate: 50                    # constant-arrival-rate 초당 반복 수 (워크로드 확정 시 조정)
   pre_allocated_vus: 50
   max_vus: 200
   seed: 42                    # 난수 시드
@@ -67,7 +65,8 @@ measure:
 
 # 측정 대상(target). run-test.sh <target>[,<target>...] <runs> 의 이름. image 가 없으면 현재 APP_IMAGE(versions.env 또는 셸) 사용.
 # impl 레포 추가: 이름, image(태그 고정), scenario(k6/scenarios/<name>.js), override(impl 의 compose.override.yml 절대경로, 선택)
+# 예)
+#   hjo:
+#     image: hjo-app:dev
+#     scenario: <k6/scenarios 의 파일명>
 targets:
-  stub:
-    image: bench/stub-app:dev
-    scenario: smoke

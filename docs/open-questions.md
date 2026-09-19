@@ -44,7 +44,7 @@
 ## 2026-09-18 / 6단계 / GC pause 패널을 optional 로, postgres_exporter 커스텀 쿼리
 - 정한 것: 대시보드 "GC pause" 두 패널은 `benchExpect=optional` (check-dashboard 가 비어 있어도 통과). 나머지 JVM 패널(allocation, heap, 스레드)은 필수
 - 왜: Micrometer `jvm_gc_pause_*` 는 첫 GC 이후에만 등록된다. 스텁 부하(50 req/s × 90s, 1GB 힙)로는 GC 가 한 번도 안 일어났다. 실제 워크로드에서는 나온다
-- 되돌리려면: `monitoring/grafana/gen-dashboard.py` 에서 expect 를 `stub` 으로 바꾸고 `make dashboard`
+- 되돌리려면: `monitoring/grafana/gen-dashboard.py` 에서 expect 를 `required` 로 바꾸고 `make dashboard` (2026-09-20 에 `stub` 표식 이름을 `required` 로 바꿈)
 - 정한 것: postgres_exporter 에 `--collector.stat_checkpointer`(PG17+ 체크포인트), `--extend.query-path` 커스텀 쿼리(`monitoring/postgres_exporter/queries.yaml`: WAL 생성량, 대기 종류별 백엔드, 락 대기 최장 시간)
 - 왜: 기본 컬렉터가 PG 18 의 pg_stat_checkpointer·pg_stat_wal 을 안 주고, "락 대기 시간" 은 PG 가 직접 노출하지 않아 pg_stat_activity 로 근사했다. `--extend.query-path` 는 deprecated 지만 v0.20.1 에서 동작한다
 - 되돌리려면: compose 의 해당 플래그·볼륨 삭제. exporter 를 올릴 때 플래그가 사라지면 커스텀 쿼리를 sql_exporter 등으로 옮긴다
@@ -53,3 +53,18 @@
 - 정한 것: 대시보드 "e2e 적재 지연" 패널은 Micrometer Timer `bench.ingest.e2e` (Prometheus 이름 `bench_ingest_e2e_seconds_bucket`) 를 읽는다. 아직 없는 지표라 `later`
 - 왜: study-spec 8장은 "컨슈머 Micrometer 타이머 또는 ingested_at 사후 집계" 라고만 했고 이름이 없다. 역할 1 에게 제안하는 인터페이스
 - 되돌리려면: 역할 1 이 다른 이름을 쓰면 gen-dashboard.py 의 쿼리만 교체
+
+## 2026-09-20 / 스텁 앱·덤프 시드 제거 / 앱·시드 연결 방식 미정
+- 정한 것: `stub-app/`, `scripts/{build-stub,seed,make-stub-dump}.sh`, `seed/`, `k6/scenarios/smoke.js`, `make seed`·`seed-stub-dump` 삭제.
+  앱은 `../APP` 레포 자체 Dockerfile 로 `make build-app` (`APP_IMAGE=hjo-app:dev`). 대시보드 필수 표식 `stub` → `required`
+- 왜: 실제 스프링 앱과 시드(앱 레포 `feat/seed-data`, 생성기 방식)가 생겼다. 시드는 덤프가 아니라 SQL 생성기 + fingerprint 로 공유하므로
+  `pg_restore` 경로가 필요 없다
+- 남은 결정:
+  - **시드를 측정용 postgres(bench-postgres)로 옮기는 법**: 앱 레포 시드는 자기 compose(`hjo-seed`, 호스트 5432)의 postgres 에 `seed_s/m/l`·`bench` DB 를 만든다.
+    (a) 앱 레포 `seed.sh` 가 bench-postgres 를 대상으로 돌게 하기, (b) 시드 postgres 의 `bench` 를 `pg_dump`/`pg_restore` 로 옮기기 중 택일. study-spec 은 덤프 공유, 앱 레포 README 는 생성기 공유라 스펙과도 맞춰야 한다
+  - **앱 기동 조건**: 앱은 `JWT_SECRET`(32바이트+) 이 없으면 기동하지 않는다. compose 에 아직 주입하지 않았다
+  - **healthcheck**: compose 는 `/actuator/health/readiness` 를 보지만 앱은 `management.endpoint.health.probes.enabled` 를 켜지 않았다 (쿠버네티스 밖에서는 readiness 그룹이 없다). 앱 이미지에 `curl` 이 있는지도 확인 필요
+  - **JVM 옵션**: 앱 Dockerfile 은 `JAVA_OPTS`(기본값 대체 방식), compose 는 `JAVA_TOOL_OPTIONS` 를 준다. 둘 다 적용되지만 어느 쪽으로 통일할지
+  - **k6 시나리오**: smoke 를 지워 시나리오가 없다. `bench.config.yml targets` 도 비어 있다
+- 되돌리려면: `git revert` 로 이 커밋을 되돌리면 스텁 앱·덤프 복원 경로가 그대로 돌아온다
+

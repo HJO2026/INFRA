@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 측정 절차 전체: preflight → (reset → measure → collect → 쿨다운) × runs → report
-# 사용: ./run-test.sh <target>[,<target>...] <runs>       예) ./run-test.sh stub 3    ./run-test.sh baseline,impl-a 3
+# 사용: ./run-test.sh <target>[,<target>...] <runs>       예) ./run-test.sh hjo 3    ./run-test.sh baseline,impl-a 3
 # target 여러 개면 회차마다 순서를 무작위화한다 (시드 고정이라 재현 가능). 결과: results/<RUN_ID>/report.md
 # 환경변수: COOLDOWN_SECONDS, RATE, WARMUP_SECONDS, STEADY_SECONDS, PRE_VUS, MAX_VUS (bench.config.yml 값 덮어쓰기)
 # shellcheck source=scripts/lib/common.sh
@@ -24,7 +24,7 @@ export RUN_ID SEED
 run_dir="$REPO_ROOT/results/$RUN_ID"
 mkdir -p "$run_dir"
 
-scenarios="$(for t in "${TARGETS[@]}"; do printf '%s=%s\n' "$t" "$(cfg "targets.$t.scenario" 2>/dev/null || echo smoke)"; done | jq -R 'split("=") | {(.[0]): .[1]}' | jq -s add)"
+scenarios="$(for t in "${TARGETS[@]}"; do printf '%s=%s\n' "$t" "$(cfg "targets.$t.scenario" 2>/dev/null || echo "?")"; done | jq -R 'split("=") | {(.[0]): .[1]}' | jq -s add)"
 jq -n --argjson targets "$(printf '%s\n' "${TARGETS[@]}" | jq -R . | jq -s .)" --argjson runs "$RUNS" --argjson seed "$SEED" \
   --arg started "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg git "$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo none)" \
   --argjson cooldown "$COOLDOWN" --argjson scenarios "$scenarios" \
