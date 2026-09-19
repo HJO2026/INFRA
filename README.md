@@ -18,15 +18,30 @@ cpuset 배치: SUT(app, postgres, 이후 kafka/redis) `0-3`, k6 `4-5`, 모니터
 ## 빠른 시작
 
 ```bash
-make pin            # versions.env 의 이미지 digest 채우기 (최초 1회, 태그 바꿀 때)
-make build-app      # 앱 레포(APP_DIR, 기본 ../APP)의 Dockerfile 로 APP_IMAGE(hjo-app:dev) 빌드
-make up             # postgres, app, prometheus, grafana, cadvisor, postgres_exporter 기동 + healthy 대기
-make check-resources
-make check-targets
-make preflight
+cp .env.example .env            # JWT_SECRET 등 로컬 값 (한 번)
+make pin                        # versions.env 의 이미지 digest 채우기 (최초 1회, 태그 바꿀 때)
+make build-app                  # 앱 레포(APP_DIR, 기본 ../APP)의 Dockerfile 로 APP_IMAGE(hjo-app:dev) 빌드
+
+docker compose up -d --wait     # postgres, app, prometheus, grafana, cadvisor, postgres_exporter
+
+make check-resources && make check-targets && make preflight
 ./run-test.sh <target> 3        # preflight → (reset → k6 → collect → 쿨다운) × 3 → results/<run-id>/report.md
 make check-dashboard
 ```
+
+컨테이너는 **그냥 `docker compose`** 로 다룬다. 루트 `compose.yaml` 이 `compose/` 아래 파일들을 include 하고
+이미지 태그를 `versions.env` 에서 읽으므로, 별도 플래그가 필요 없다.
+
+```bash
+docker compose ps
+docker compose logs -f app
+docker compose down            # 볼륨 유지
+docker compose down -v         # DB 데이터까지 삭제
+docker compose config -q       # 설정 검증
+docker compose -f compose.yaml -f /path/impl/compose.override.yml up -d --wait   # impl 추가 컴포넌트
+```
+
+`make` 는 **여러 단계를 순서대로 밟는 것(측정 절차)** 에만 쓴다. 목록은 `make help`.
 
 `.env` 로 비밀값·노브를 덮어쓴다: `cp .env.example .env` (JWT_SECRET 등. compose 가 `versions.env` 다음에 읽는다).
 
@@ -38,7 +53,7 @@ make check-dashboard
 
 ```bash
 # 0) 측정 스택을 먼저 띄운다
-make up
+docker compose up -d --wait
 
 # 1) 앱 레포에서 시드 생성 (규모: s | m | l). 앱 레포의 .env 가 필요하다 (APP/seed/README.md)
 bash ../APP/seed/seed.sh s
@@ -46,7 +61,7 @@ bash ../APP/seed/seed.sh s
 # 2) 시드 postgres 의 bench DB 를 측정용 postgres 로 옮긴다 (한 줄).
 #    app 을 먼저 멈춘다. 접속 세션이 남아 있으면 --clean 이 실패한다
 SEED_DC="docker compose -f ../APP/seed/compose.seed.yml"
-BENCH_DC="docker compose --env-file versions.env -f compose/compose.base.yml"
+BENCH_DC="docker compose"
 $BENCH_DC stop app \
   && $SEED_DC exec -T postgres pg_dump -U hjo -Fc -Z 6 bench \
      | $BENCH_DC exec -T postgres pg_restore -U bench -d bench --clean --if-exists --no-owner --no-privileges \
@@ -61,7 +76,7 @@ $BENCH_DC stop app \
 컨테이너 안으로 **스크립트를 한 줄로 밀어 넣는** 방법 (위 2)와 같은 패턴):
 
 ```bash
-BENCH_DC="docker compose --env-file versions.env -f compose/compose.base.yml"
+BENCH_DC="docker compose"
 $BENCH_DC exec -T postgres psql -U bench -d bench -v ON_ERROR_STOP=1 -f - < 어떤.sql   # SQL 파일
 $BENCH_DC exec -T postgres bash -s < 어떤.sh                                          # 셸 스크립트
 $BENCH_DC cp 어떤파일 postgres:/tmp/                                                   # 파일만 넣기
@@ -86,11 +101,8 @@ Prometheus: <http://localhost:9090>.
 |---|---|
 | `make help` | 타깃 목록 |
 | `make pin` / `make pin-check` | `versions.env` digest 갱신 / 일치 확인 |
-| `make config` | compose 설정 검증 |
 | `make lint` | shellcheck |
 | `make build-app` | 앱 레포(`APP_DIR`)의 Dockerfile 로 `APP_IMAGE` 빌드 |
-| `make up` / `make down` / `make down-v` | 기동 / 정지 / 볼륨까지 삭제 |
-| `make ps` / `make logs SVC=app` | 상태 / 로그 |
 | `make check-resources` | cpuset·mem_limit 을 예산표와 대조 (compose 설정 + docker inspect) |
 | `make check-targets` | Prometheus 타깃 전부 up |
 | `make check-dashboard` | 대시보드 패널 쿼리 실행, 필수 패널이 비면 실패 |
@@ -117,12 +129,13 @@ Prometheus: <http://localhost:9090>.
 ## 디렉터리
 
 ```
+compose.yaml        루트 진입점 (compose/ 아래를 include). docker compose 명령이 그대로 된다
 compose/            compose.base.yml (postgres, app, k6 profile), compose.monitoring.yml
 postgres/           postgresql.conf (baseline: shared_buffers 256MB, max_connections 30, work_mem 4MB, UTC)
 monitoring/         prometheus/, grafana/{provisioning,dashboards,gen-dashboard.py}, postgres_exporter/queries.yaml
 k6/{lib,scenarios}  common.js (러너 공통). 실제 워크로드 시나리오는 미결
 verify/             부하 후 정합성 검증 자리 (내용 미결)
-scripts/            preflight, reset, measure, collect, report, check-*, pin-versions, build-app, up
+scripts/            preflight, reset, measure, collect, report, check-*, pin-versions, build-app
 templates/          Dockerfile, compose.override.yml (impl 레포가 복사)
 .env.example        로컬 비밀값·노브 예시 (.env 는 git 제외)
 results/            측정 결과 (report.md 만 커밋)

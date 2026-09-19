@@ -58,7 +58,7 @@ targets:
 
 이후 `./run-test.sh impl-<name> 3`, 또는 baseline 과 같이 `./run-test.sh baseline,impl-<name> 3` (회차마다 순서 무작위).
 
-단발 확인은 환경변수로도 된다: `APP_IMAGE=bench/impl-<name>:v1 make up`.
+단발 확인은 환경변수로도 된다: `APP_IMAGE=bench/impl-<name>:v1 docker compose up -d --wait`.
 
 ## 4. 추가 컴포넌트 (compose.override.yml)
 

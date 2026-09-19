@@ -17,6 +17,7 @@
 ## 불변 규칙
 - 이미지 태그는 명시 버전만. `latest` 금지. `versions.env`에 태그와 digest를 같이 기록
 - 측정 로직은 `Makefile`과 `scripts/`에만 둔다. CI 워크플로가 생기더라도 `make` 호출만 한다
+- 컨테이너 기동·정지·상태·로그는 `docker compose` 를 그대로 쓴다. 래퍼를 만들지 않는다 (루트 `compose.yaml`)
 - cpuset: SUT(app, postgres, 이후 kafka/redis) `0-3`, k6 `4-5`, 모니터링 `6`
 - 전체 메모리 예산은 Docker VM 할당 8GB. 컨테이너별 `mem_limit`은 `docs/role-3.md` 예산표를 따른다
 - DB·Kafka 데이터는 named volume. bind mount는 설정 파일과 스크립트만
@@ -26,6 +27,7 @@
 
 ## 디렉터리 (설계서 v3 기준, monitoring/templates 추가)
 ```
+compose.yaml        루트 진입점 (compose/ 아래 include). `docker compose up -d --wait` 가 그대로 된다
 compose/            compose.base.yml, compose.monitoring.yml, profiles(kafka, redis는 나중)
 postgres/           postgresql.conf (baseline 값). 스키마는 넣지 않음
 monitoring/         prometheus/, grafana/{provisioning,dashboards}/
@@ -84,7 +86,7 @@ chore(docker): Temurin 25 고정 2단계 빌드 Dockerfile, JAVA_OPTS 주입, GC
 - 범위 밖 파일이 필요하면 스텁으로 대체하고 교체 지점을 기록
 
 ## 검증 명령
-- `docker compose --env-file versions.env -f compose/compose.base.yml -f compose/compose.monitoring.yml config -q`
+- `docker compose config -q` (루트 `compose.yaml` 이 compose/ 아래를 include 한다)
 - `shellcheck scripts/*.sh run-test.sh`
 - `make preflight`
 

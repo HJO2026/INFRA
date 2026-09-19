@@ -20,7 +20,7 @@
 | `container-flags <image>` | 새 컨테이너 플래그를 쓰기 전에 `docker run --rm <image> --help` 로 실제 플래그 이름·형식을 확인. cAdvisor(`--disable_metrics` 값 목록), postgres_exporter(`--no-collector.x` 형식) 두 번 틀렸다 |
 | `docker-desktop-mount-check` | 바인드 마운트 경로가 Mac 쪽인지 VM 쪽인지 `docker run -v <path>:/x alpine ls /x` 로 먼저 확인. `/var/run` 은 Mac, `/var/lib/docker`·`/run` 은 VM 으로 매핑되는 걸 시행착오로 알았다 |
 | `measure-quick` | `WARMUP_SECONDS=5 STEADY_SECONDS=10 COOLDOWN_SECONDS=0` 으로 파이프라인만 빠르게 검증. 정식 3회차(약 8분) 전에 항상 이걸 먼저 돌렸다 |
-| `check-all` | `make config lint check-resources check-targets check-dashboard` 를 한 번에. 문서의 검증 명령 세 개 + 단계별 판정을 합친 것 |
+| `check-all` | `docker compose config -q` + `make lint check-resources check-targets check-dashboard` 를 한 번에. 문서의 검증 명령 세 개 + 단계별 판정을 합친 것 |
 
 ## 서브에이전트 후보
 

@@ -3,20 +3,19 @@ SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help
 
+# 컨테이너 기동·정지·로그는 make 를 거치지 않는다. 루트 compose.yaml 덕분에 docker compose 명령이 그대로 된다.
+#   docker compose up -d --wait / ps / logs -f app / down / down -v / config
+# 여기 남은 것은 측정 절차(여러 단계를 순서대로 밟는 것)뿐이다.
 VERSIONS_ENV ?= versions.env
-# 로컬 비밀값·오버라이드. .env 가 있으면 versions.env 뒤에 얹는다 (뒤 파일이 이긴다). 예시는 .env.example
-ENV_FILES := --env-file $(VERSIONS_ENV) $(if $(wildcard .env),--env-file .env)
-COMPOSE_FILES := -f compose/compose.base.yml $(if $(wildcard compose/compose.monitoring.yml),-f compose/compose.monitoring.yml)
-# impl 레포의 compose.override.yml 등을 붙일 때: make up COMPOSE_OVERRIDE=/path/a.yml:/path/b.yml
+# impl 레포의 compose.override.yml 등을 붙일 때: make reset COMPOSE_OVERRIDE=/path/a.yml:/path/b.yml
 COMPOSE_OVERRIDE ?=
-COMPOSE_EXTRA := $(foreach f,$(subst :, ,$(COMPOSE_OVERRIDE)),-f $(f))
-COMPOSE := docker compose $(ENV_FILES) $(COMPOSE_FILES) $(COMPOSE_EXTRA)
+COMPOSE := docker compose $(if $(COMPOSE_OVERRIDE),-f compose.yaml $(foreach f,$(subst :, ,$(COMPOSE_OVERRIDE)),-f $(f)))
 export COMPOSE_OVERRIDE
 
 TARGET ?=
 RUNS ?= 3
 
-.PHONY: help pin pin-check config lint build-app up down down-v ps logs \
+.PHONY: help pin pin-check lint build-app \
         check-resources check-targets check-dashboard dashboard \
         preflight reset measure collect report test
 
@@ -31,29 +30,11 @@ pin: ## versions.env 의 이미지 digest 를 레지스트리에서 조회해 �
 pin-check: ## versions.env digest 가 레지스트리와 일치하는지만 확인
 	scripts/pin-versions.sh --check
 
-config: ## compose 설정 검증 (문법·변수 치환)
-	$(COMPOSE) config -q && echo "compose config OK"
-
 lint: ## shellcheck
 	shellcheck scripts/*.sh scripts/lib/*.sh run-test.sh && echo "shellcheck OK"
 
 build-app: ## 앱 레포(APP_DIR, 기본 ../APP)의 Dockerfile 로 APP_IMAGE 빌드
 	scripts/build-app.sh
-
-up: ## SUT + 모니터링 기동 후 healthy 대기
-	scripts/up.sh
-
-down: ## 컨테이너 정지·삭제 (볼륨 유지)
-	$(COMPOSE) down --remove-orphans
-
-down-v: ## 컨테이너와 named volume 까지 삭제
-	$(COMPOSE) down --remove-orphans -v
-
-ps: ## 컨테이너 상태
-	$(COMPOSE) ps
-
-logs: ## 로그 팔로우 (SVC=app 처럼 지정 가능)
-	$(COMPOSE) logs -f $(SVC)
 
 check-resources: ## cpuset·mem_limit 이 예산표와 일치하는지 docker inspect 로 대조
 	scripts/check-resources.sh

@@ -1,4 +1,4 @@
-# 스파이크 분석용: 1초 스크레이프. 사용: PROM_CONFIG=prometheus.1s.yml make up
+# 스파이크 분석용: 1초 스크레이프. 사용: PROM_CONFIG=prometheus.1s.yml docker compose up -d --wait
 global:
   scrape_interval: 1s
   scrape_timeout: 1s

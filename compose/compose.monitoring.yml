@@ -16,7 +16,7 @@ services:
     environment:
       TZ: UTC
     volumes:
-      # 스크레이프 간격 전환: PROM_CONFIG=prometheus.1s.yml make up (스파이크 분석용)
+      # 스크레이프 간격 전환: PROM_CONFIG=prometheus.1s.yml docker compose up -d --wait (스파이크 분석용)
       - ../monitoring/prometheus/${PROM_CONFIG:-prometheus.yml}:/etc/prometheus/prometheus.yml:ro
       - promdata:/prometheus
     ports:

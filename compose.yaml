@@ -1,0 +1,16 @@
+# 이 파일이 있어서 레포 루트에서 docker compose 명령이 그대로 된다.
+#   docker compose up -d --wait     기동 (healthy 까지 대기)
+#   docker compose ps / logs -f app / down / down -v
+#   docker compose --profile k6 run --rm k6 ...      부하 생성기 (measure.sh 가 쓴다)
+#
+# 이미지 태그는 versions.env 에서 읽는다. 루트에 .env 가 있으면 그 값이 이긴다 (.env.example 참고).
+# 실제 서비스 정의는 compose/ 아래에 있다. impl 레포 override 는 -f 로 덧붙인다:
+#   docker compose -f compose.yaml -f /path/impl/compose.override.yml up -d --wait
+name: bench
+
+include:
+  - path:
+      - compose/compose.base.yml
+      - compose/compose.monitoring.yml
+    env_file:
+      - versions.env
