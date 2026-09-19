@@ -10,7 +10,7 @@
 | Docker Desktop (또는 Colima) | VM 에 **CPU 7개 이상, 메모리 8GB** 할당. 디스크 이미지 60GB 이상 권장 (M/L 시드). `docker info` 로 확인 |
 | 도구 | `docker` (compose v2 포함), `bash`, `jq`, `curl`, `python3`, `shellcheck`(개발 시) |
 | 설정 | `cp .env.example .env` 후 `JWT_SECRET` 을 팀 값으로 (앱은 이 값이 없으면 기동하지 않는다) |
-| 호스트 포트 | 8080(app), 15432(postgres), 9090(prometheus), 3000(grafana), 8081(cadvisor), 9187(exporter). 충돌 시 `APP_HOST_PORT`, `PG_HOST_PORT`, `PROM_HOST_PORT`, `GRAFANA_HOST_PORT` 로 변경 |
+| 호스트 포트 | 8080(app), 15432(postgres), 9090(prometheus), 8081(cadvisor), 9187(exporter), 3000(grafana, 켠 경우). 충돌 시 `APP_HOST_PORT`, `PG_HOST_PORT`, `PROM_HOST_PORT`, `GRAFANA_HOST_PORT` 로 변경 |
 | 측정 환경 | 다른 앱·컨테이너 종료, 전원 연결, VM 할당 고정. `make preflight` 가 다른 프로젝트 컨테이너를 경고한다 |
 
 cpuset 배치: SUT(app, postgres, 이후 kafka/redis) `0-3`, k6 `4-5`, 모니터링 `6`. 컨테이너별 메모리는 `bench.config.yml` 의 `budget`.
@@ -22,7 +22,7 @@ cp .env.example .env            # JWT_SECRET 등 로컬 값 (한 번)
 make pin                        # versions.env 의 이미지 digest 채우기 (최초 1회, 태그 바꿀 때)
 make build-app                  # 앱 레포(APP_DIR, 기본 ../APP)의 Dockerfile 로 APP_IMAGE(hjo-app:dev) 빌드
 
-docker compose up -d --wait     # postgres, app, prometheus, grafana, cadvisor, postgres_exporter
+docker compose up -d --wait     # postgres, app, prometheus, cadvisor, postgres_exporter
 
 make check-resources && make check-targets && make preflight
 ./run-test.sh <target> 3        # preflight → (reset → k6 → collect → 쿨다운) × 3 → results/<run-id>/report.md
@@ -82,8 +82,12 @@ $BENCH_DC exec -T postgres bash -s < 어떤.sh                                  
 $BENCH_DC cp 어떤파일 postgres:/tmp/                                                   # 파일만 넣기
 ```
 
-Grafana: <http://localhost:3000> (익명 조회, 편집은 admin/admin). 대시보드 `bench overview`.
 Prometheus: <http://localhost:9090>.
+
+**Grafana 는 기본으로 뜨지 않는다.** 보고 싶은 사람만 `compose/compose.monitoring.yml` 의 `grafana:` 블록과
+맨 아래 `grafanadata:` 볼륨의 주석을 풀고 `docker compose up -d --wait` 하면 <http://localhost:3000> 에서 열린다
+(익명 조회, 편집은 admin/admin, 대시보드 `bench overview` 는 자동 등록).
+Grafana 없이도 측정·판정은 그대로다. 지표는 Prometheus 가 모으고, `make check-dashboard` 가 패널 쿼리를 직접 실행해 빈 패널을 알려 준다.
 
 빠른 파이프라인 확인만 할 때: `WARMUP_SECONDS=5 STEADY_SECONDS=10 COOLDOWN_SECONDS=0 ./run-test.sh <target> 1`
 
@@ -93,7 +97,7 @@ Prometheus: <http://localhost:9090>.
 2. `bench.config.yml` 의 `targets` 에 이름·이미지(·override) 를 등록한다
 3. 시드 데이터를 준비한다 (위 [시드 데이터](#시드-데이터))
 4. `./run-test.sh baseline,impl-a 3` — 회차마다 대상 순서를 무작위(시드 고정)로 돌린다
-5. `results/<run-id>/report.md` 를 읽고 Grafana 스크린샷을 붙인다
+5. `results/<run-id>/report.md` 를 읽는다 (Grafana 를 켰다면 그 구간 스크린샷을 붙인다)
 
 ## 명령
 
