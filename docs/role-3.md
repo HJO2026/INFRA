@@ -18,12 +18,14 @@
 | 대상 | 연결 방식 | 기본값 |
 |---|---|---|
 | 앱 이미지 | 환경변수 `APP_IMAGE`, `make build-app APP_DIR=<앱 레포>` | `hjo-app:dev`, `../APP` |
-| 시드 데이터 | 앱 레포 `seed/seed.sh s\|m\|l` (생성기) | 측정용 postgres 연결 방법 미정 |
+| 시드 데이터 | 앱 레포 `seed/seed.sh s\|m\|l` 로 생성 → `pg_dump \| pg_restore` 한 줄로 측정용 postgres 로 이관 (README) | 규모 s |
+| 비밀값·노브 | `.env` (`.env.example` 복사). compose 가 `versions.env` 다음에 읽는다 | `JWT_SECRET` 은 개발용 기본값 |
 | impl 추가 컴포넌트 | impl 레포의 `compose.override.yml`을 `-f`로 합침 | 없음 |
 
-앱 이미지 계약 (study-spec 10장): 포트 8080, `/actuator/health`와 `/actuator/prometheus` 노출,
-DB 접속은 `SPRING_DATASOURCE_URL/USERNAME/PASSWORD`, JVM 옵션은 compose의 `JAVA_TOOL_OPTIONS`로 주입.
-기본 JVM 옵션: `-Xms1g -Xmx1g -XX:+UseG1GC -Xlog:gc`.
+앱 이미지 계약 (study-spec 10장 + 앱 레포 README 의 환경변수 표): 포트 8080, `/actuator/health`와 `/actuator/prometheus` 노출,
+DB 접속은 `DB_WRITE_URL/DB_USERNAME/DB_PASSWORD`, 인증은 `JWT_SECRET`, JVM 옵션은 compose의 `JAVA_OPTS`로 주입
+(값을 주면 이미지 기본값을 대체한다). 기본 JVM 옵션: `-Xms1g -Xmx1g -XX:+UseG1GC -XX:ActiveProcessorCount=4 -Xlog:gc*:file=/logs/gc.log:time,uptime`.
+healthcheck 는 이미지에 curl 이 없어 `bash` 의 `/dev/tcp` 로 친다 (`APP_HEALTH_PATH`, 기본 `/actuator/health`).
 
 ## 리소스 예산 (초기안, 변경 시 근거 기록)
 | 컨테이너 | cpuset | mem_limit |

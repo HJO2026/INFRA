@@ -4,11 +4,13 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
 VERSIONS_ENV ?= versions.env
+# 로컬 비밀값·오버라이드. .env 가 있으면 versions.env 뒤에 얹는다 (뒤 파일이 이긴다). 예시는 .env.example
+ENV_FILES := --env-file $(VERSIONS_ENV) $(if $(wildcard .env),--env-file .env)
 COMPOSE_FILES := -f compose/compose.base.yml $(if $(wildcard compose/compose.monitoring.yml),-f compose/compose.monitoring.yml)
 # impl 레포의 compose.override.yml 등을 붙일 때: make up COMPOSE_OVERRIDE=/path/a.yml:/path/b.yml
 COMPOSE_OVERRIDE ?=
 COMPOSE_EXTRA := $(foreach f,$(subst :, ,$(COMPOSE_OVERRIDE)),-f $(f))
-COMPOSE := docker compose --env-file $(VERSIONS_ENV) $(COMPOSE_FILES) $(COMPOSE_EXTRA)
+COMPOSE := docker compose $(ENV_FILES) $(COMPOSE_FILES) $(COMPOSE_EXTRA)
 export COMPOSE_OVERRIDE
 
 TARGET ?=

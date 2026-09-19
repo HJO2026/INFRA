@@ -68,3 +68,16 @@
   - **k6 시나리오**: smoke 를 지워 시나리오가 없다. `bench.config.yml targets` 도 비어 있다
 - 되돌리려면: `git revert` 로 이 커밋을 되돌리면 스텁 앱·덤프 복원 경로가 그대로 돌아온다
 
+## 2026-09-20 / 앱 연동 / 시드 이관, .env, JAVA_OPTS, healthcheck
+- 정한 것 (앞 항목의 "남은 결정" 중 넷):
+  - **시드 이관**: 앱 레포 `seed/seed.sh` 로 만든 뒤 `pg_dump -Fc | pg_restore` 한 줄로 측정용 postgres 로 옮긴다 (README "시드 데이터").
+    bench-infra 에 make 타깃이나 스크립트를 두지 않고 문서로만 둔다
+  - **비밀값**: 루트 `.env` (git 제외, 예시는 `.env.example`). compose 는 `--env-file versions.env --env-file .env` 순으로 읽는다.
+    `JWT_SECRET` 은 compose 에 개발용 기본값을 두어 `.env` 없이도 `config`·`up` 이 동작한다
+  - **JVM 옵션**: 앱 기준인 `JAVA_OPTS` 로 통일 (`JAVA_TOOL_OPTIONS` 제거). 값을 주면 이미지 기본값을 대체하므로 G1·GC 로그·`ActiveProcessorCount=4` 까지 기본값에 넣었다. GC 로그는 named volume `gclogs`(`/logs`)
+  - **healthcheck**: 앱 이미지에 curl·wget 이 없다(실행해 확인). `bash` 의 `/dev/tcp` 로 HTTP 를 직접 친다. 경로는 `APP_HEALTH_PATH`, 기본 `/actuator/health`
+- 왜: 시드 생성은 역할 2 의 코드이고 규모별로 수십 분이 걸린다. 인프라가 감싸면 두 곳에서 관리된다.
+  DB·JVM·인증 환경변수는 앱 레포 README 의 이름을 그대로 쓰는 편이 계약이 하나로 유지된다
+- 되돌리려면: compose 의 환경변수 이름·healthcheck 블록을 이전 커밋에서 되살린다. `.env` 는 지우면 그만이다 (compose 는 없으면 건너뛴다)
+- 남은 것: k6 시나리오와 `bench.config.yml targets` 는 여전히 비어 있다. 앱의 readiness probe 를 켜면 `APP_HEALTH_PATH` 를 `/actuator/health/readiness` 로 바꾼다
+

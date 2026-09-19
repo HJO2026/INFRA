@@ -41,12 +41,21 @@ services:
     image: ${APP_IMAGE}
     container_name: bench-app
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bench}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-bench}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-bench}
-      # JVM 옵션은 여기서만 주입한다 (Dockerfile 하드코딩 금지). 기본값: docs/role-3.md
-      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms1g -Xmx1g -XX:+UseG1GC -Xlog:gc}
+      # 앱 레포(../APP)의 환경변수 이름을 그대로 쓴다 (README 환경변수 표)
+      DB_WRITE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bench}
+      DB_USERNAME: ${POSTGRES_USER:-bench}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-bench}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
+      VIRTUAL_THREADS_ENABLED: ${VIRTUAL_THREADS_ENABLED:-false}
+      # HS256 공유 비밀키(32바이트 이상). 없으면 앱이 기동하지 않는다. 팀 값은 .env 로 덮어쓴다 (.env.example)
+      JWT_SECRET: ${JWT_SECRET:-bench-local-insecure-secret-change-me}
+      # JVM 옵션은 여기서만 주입한다 (Dockerfile 하드코딩 금지). 앱 이미지는 JAVA_OPTS 를 쓰고, 주면 이미지 기본값을 대체하므로
+      # G1·GC 로그 옵션도 함께 넣는다. 코어 수는 SUT cpuset(0-3)과 맞춘다. 기본값 근거: docs/role-3.md
+      JAVA_OPTS: ${JAVA_OPTS:--Xms1g -Xmx1g -XX:+UseG1GC -XX:ActiveProcessorCount=4 -Xlog:gc*:file=/logs/gc.log:time,uptime}
       TZ: UTC
+    volumes:
+      # 앱이 GC 로그를 쓰는 곳. 꺼내기: docker compose cp app:/logs/gc.log results/<run-id>/
+      - gclogs:/logs
     ports:
       - "127.0.0.1:${APP_HOST_PORT:-8080}:8080"
     cpuset: *sut-cpuset
@@ -57,7 +66,16 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"UP\"'"]
+      # 앱 이미지에 curl·wget 이 없다 (앱 README 의 계약표). bash 의 /dev/tcp 로 직접 HTTP 를 친다.
+      # readiness 를 쓰려면 앱에서 management.endpoint.health.probes.enabled 가 켜져 있어야 한다 (.env.example)
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080;
+          printf 'GET ${APP_HEALTH_PATH:-/actuator/health} HTTP/1.0\r\n\r\n' >&3;
+          grep -q '"status":"UP"' <&3
       interval: 5s
       timeout: 3s
       retries: 24
@@ -88,6 +106,7 @@ services:
 
 volumes:
   pgdata:
+  gclogs:
 
 networks:
   bench:

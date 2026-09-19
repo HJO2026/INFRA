@@ -34,7 +34,7 @@ verify/             뼈대만 (내용은 미결)
 scripts/            preflight, reset, measure, collect, report, build-app, check-*
 templates/          impl 레포가 복사해 갈 Dockerfile, compose.override.yml 예시
 results/            측정 결과 (git 제외, 리포트 md만 커밋 가능)
-versions.env, bench.config.yml, Makefile, run-test.sh
+versions.env, .env.example(로컬 비밀값 예시, .env 는 git 제외), bench.config.yml, Makefile, run-test.sh
 ```
 
 ## 작업 방식
