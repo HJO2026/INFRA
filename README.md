@@ -89,7 +89,7 @@ Prometheus: <http://localhost:9090>.
 
 ## 실제 구현 측정
 
-1. impl 레포가 `templates/Dockerfile` 로 이미지를 빌드한다 (`docs/impl-guide.md`)
+1. impl 레포가 자기 `Dockerfile` 로 이미지를 빌드한다 (`docs/impl-guide.md`)
 2. `bench.config.yml` 의 `targets` 에 이름·이미지(·override) 를 등록한다
 3. 시드 데이터를 준비한다 (위 [시드 데이터](#시드-데이터))
 4. `./run-test.sh baseline,impl-a 3` — 회차마다 대상 순서를 무작위(시드 고정)로 돌린다
@@ -136,7 +136,6 @@ monitoring/         prometheus/, grafana/{provisioning,dashboards,gen-dashboard.
 k6/{lib,scenarios}  common.js (러너 공통). 실제 워크로드 시나리오는 미결
 verify/             부하 후 정합성 검증 자리 (내용 미결)
 scripts/            preflight, reset, measure, collect, report, check-*, pin-versions, build-app
-templates/          Dockerfile, compose.override.yml (impl 레포가 복사)
 .env.example        로컬 비밀값·노브 예시 (.env 는 git 제외)
 results/            측정 결과 (report.md 만 커밋)
 docs/               study-spec, role-3, open-questions, progress, impl-guide, harness-notes

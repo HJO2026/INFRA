@@ -11,6 +11,3 @@ results/**
 compose/compose.local.yml
 .env
 .env.local
-
-# 루트에 남아 있는 docs/role-3.md 사본 (내용 동일). 원본은 docs/ 아래
-/role-3.md
