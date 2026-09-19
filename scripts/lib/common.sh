@@ -8,6 +8,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export REPO_ROOT
 
 VERSIONS_ENV="${VERSIONS_ENV:-$REPO_ROOT/versions.env}"
+LOCAL_ENV="${LOCAL_ENV:-$REPO_ROOT/.env}"          # 로컬 비밀값·오버라이드 (git 제외). 있으면 versions.env 뒤에 얹는다
 BENCH_CONFIG="${BENCH_CONFIG:-$REPO_ROOT/bench.config.yml}"
 COMPOSE_BASE="$REPO_ROOT/compose/compose.base.yml"
 COMPOSE_MON="$REPO_ROOT/compose/compose.monitoring.yml"   # 3단계에서 생김. 없으면 건너뜀
@@ -44,7 +45,9 @@ load_versions() {
 
 # docker compose 공통 호출. 인자는 compose 하위 명령
 compose() {
-  local args=(--env-file "$VERSIONS_ENV" -f "$COMPOSE_BASE")
+  local args=(--env-file "$VERSIONS_ENV")
+  [[ -f "$LOCAL_ENV" ]] && args+=(--env-file "$LOCAL_ENV")
+  args+=(-f "$COMPOSE_BASE")
   [[ -f "$COMPOSE_MON" ]] && args+=(-f "$COMPOSE_MON")
   if [[ -n "$COMPOSE_OVERRIDE" ]]; then
     local f

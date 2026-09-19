@@ -9,6 +9,7 @@
 |---|---|
 | Docker Desktop (또는 Colima) | VM 에 **CPU 7개 이상, 메모리 8GB** 할당. 디스크 이미지 60GB 이상 권장 (M/L 시드). `docker info` 로 확인 |
 | 도구 | `docker` (compose v2 포함), `bash`, `jq`, `curl`, `python3`, `shellcheck`(개발 시) |
+| 설정 | `cp .env.example .env` 후 `JWT_SECRET` 을 팀 값으로 (앱은 이 값이 없으면 기동하지 않는다) |
 | 호스트 포트 | 8080(app), 15432(postgres), 9090(prometheus), 3000(grafana), 8081(cadvisor), 9187(exporter). 충돌 시 `APP_HOST_PORT`, `PG_HOST_PORT`, `PROM_HOST_PORT`, `GRAFANA_HOST_PORT` 로 변경 |
 | 측정 환경 | 다른 앱·컨테이너 종료, 전원 연결, VM 할당 고정. `make preflight` 가 다른 프로젝트 컨테이너를 경고한다 |
 
@@ -27,8 +28,44 @@ make preflight
 make check-dashboard
 ```
 
-시드 데이터는 앱 레포 `feat/seed-data` 브랜치의 `seed/` 가 만든다 (bench-infra 는 시드 코드를 두지 않는다).
-측정용 postgres 로 옮기는 방법은 미정이다 (`docs/open-questions.md`).
+`.env` 로 비밀값·노브를 덮어쓴다: `cp .env.example .env` (JWT_SECRET 등. compose 가 `versions.env` 다음에 읽는다).
+
+## 시드 데이터
+
+시드는 앱 레포(`../APP`)의 `seed/` 생성기가 만든다. bench-infra 에는 시드 생성·복원 코드가 없다.
+생성기는 **자기 compose 의 postgres**(프로젝트 `hjo-seed`)에 `seed_s/m/l` 템플릿과 `bench` DB 를 만들므로,
+측정용 postgres(`bench-postgres`)로 한 번 옮겨야 한다.
+
+```bash
+# 0) 측정 스택을 먼저 띄운다
+make up
+
+# 1) 앱 레포에서 시드 생성 (규모: s | m | l). 앱 레포의 .env 가 필요하다 (APP/seed/README.md)
+bash ../APP/seed/seed.sh s
+
+# 2) 시드 postgres 의 bench DB 를 측정용 postgres 로 옮긴다 (한 줄).
+#    app 을 먼저 멈춘다. 접속 세션이 남아 있으면 --clean 이 실패한다
+SEED_DC="docker compose -f ../APP/seed/compose.seed.yml"
+BENCH_DC="docker compose --env-file versions.env -f compose/compose.base.yml"
+$BENCH_DC stop app \
+  && $SEED_DC exec -T postgres pg_dump -U hjo -Fc -Z 6 bench \
+     | $BENCH_DC exec -T postgres pg_restore -U bench -d bench --clean --if-exists --no-owner --no-privileges \
+  && $BENCH_DC exec -T postgres psql -U bench -d bench -c 'VACUUM ANALYZE' \
+  && $BENCH_DC start app
+```
+
+- 파이프로 넘기므로 `pg_restore -j` (병렬)는 쓸 수 없다. 병렬 복원이 필요하면 덤프를 파일로 받아서 복원한다
+- 복원 후 `VACUUM ANALYZE` 는 필수다 (통계가 없으면 실행 계획이 달라져 측정이 무의미해진다)
+- 규모를 바꿀 때마다 1)·2)를 다시 한다. 앱 레포 쪽은 템플릿이 이미 있으면 복제만 해서 빠르다
+
+컨테이너 안으로 **스크립트를 한 줄로 밀어 넣는** 방법 (위 2)와 같은 패턴):
+
+```bash
+BENCH_DC="docker compose --env-file versions.env -f compose/compose.base.yml"
+$BENCH_DC exec -T postgres psql -U bench -d bench -v ON_ERROR_STOP=1 -f - < 어떤.sql   # SQL 파일
+$BENCH_DC exec -T postgres bash -s < 어떤.sh                                          # 셸 스크립트
+$BENCH_DC cp 어떤파일 postgres:/tmp/                                                   # 파일만 넣기
+```
 
 Grafana: <http://localhost:3000> (익명 조회, 편집은 admin/admin). 대시보드 `bench overview`.
 Prometheus: <http://localhost:9090>.
@@ -39,7 +76,7 @@ Prometheus: <http://localhost:9090>.
 
 1. impl 레포가 `templates/Dockerfile` 로 이미지를 빌드한다 (`docs/impl-guide.md`)
 2. `bench.config.yml` 의 `targets` 에 이름·이미지(·override) 를 등록한다
-3. 측정용 postgres 에 시드 데이터를 준비한다 (앱 레포 `seed/`, 연결 방법 미정)
+3. 시드 데이터를 준비한다 (위 [시드 데이터](#시드-데이터))
 4. `./run-test.sh baseline,impl-a 3` — 회차마다 대상 순서를 무작위(시드 고정)로 돌린다
 5. `results/<run-id>/report.md` 를 읽고 Grafana 스크린샷을 붙인다
 
@@ -87,6 +124,7 @@ k6/{lib,scenarios}  common.js (러너 공통). 실제 워크로드 시나리오�
 verify/             부하 후 정합성 검증 자리 (내용 미결)
 scripts/            preflight, reset, measure, collect, report, check-*, pin-versions, build-app, up
 templates/          Dockerfile, compose.override.yml (impl 레포가 복사)
+.env.example        로컬 비밀값·노브 예시 (.env 는 git 제외)
 results/            측정 결과 (report.md 만 커밋)
 docs/               study-spec, role-3, open-questions, progress, impl-guide, harness-notes
 ```

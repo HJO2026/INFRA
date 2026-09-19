@@ -8,10 +8,12 @@ impl 레포는 **이미지, `compose.override.yml`, 마이그레이션** 만 제
 | 항목 | 값 |
 |---|---|
 | 포트 | 8080 |
-| 헬스 | `GET /actuator/health` (compose healthcheck 는 `/actuator/health/readiness` 에 `"UP"` 을 기대) |
+| 헬스 | `GET /actuator/health` 가 `{"status":"UP"}`. compose healthcheck 는 이미지에 curl 이 없다고 보고 `bash` 의 `/dev/tcp` 로 친다. 경로는 `APP_HEALTH_PATH` (기본 `/actuator/health`, probes 를 켰으면 `/actuator/health/readiness`) |
 | 지표 | `GET /actuator/prometheus` (`micrometer-registry-prometheus` 의존성) |
-| DB 접속 | 환경변수 `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` |
-| JVM 옵션 | Dockerfile 에 하드코딩 금지. compose 가 `JAVA_TOOL_OPTIONS` 로 주입 (기본 `-Xms1g -Xmx1g -XX:+UseG1GC -Xlog:gc`) |
+| DB 접속 | 환경변수 `DB_WRITE_URL`, `DB_USERNAME`, `DB_PASSWORD` (앱 레포 환경변수 표와 같은 이름). 노브: `DB_POOL_SIZE`, `VIRTUAL_THREADS_ENABLED` |
+| 인증 | `JWT_SECRET` (HS256, 32바이트 이상). compose 가 `.env` 에서 읽어 넣는다 |
+| JVM 옵션 | compose 가 `JAVA_OPTS` 로 주입한다. **값을 주면 이미지 기본값을 대체**하므로 G1·GC 로그 옵션까지 함께 넣는다. 기본값 `-Xms1g -Xmx1g -XX:+UseG1GC -XX:ActiveProcessorCount=4 -Xlog:gc*:file=/logs/gc.log:time,uptime` |
+| GC 로그 | 컨테이너 `/logs/gc.log` (named volume `gclogs`). 꺼내기: `docker compose cp app:/logs/gc.log results/<run-id>/` |
 | 시간대 | 컨테이너 `TZ=UTC`. 앱도 UTC 로 동작해야 한다 |
 | 로깅 | study-spec 4장 수준(`root: WARN`). 동기 로깅이면 문서화 |
 
