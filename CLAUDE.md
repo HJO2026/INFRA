@@ -38,9 +38,42 @@ versions.env, bench.config.yml, Makefile, run-test.sh
 ## 작업 방식
 - `docs/role-3.md`의 단계를 순서대로 진행한다
 - 각 단계의 완료 판정 명령을 실제로 실행하고, 통과해야 다음 단계로 간다
-- 단계가 끝나면 `docs/progress.md`에 결과를 적고 `git commit -m "stage N: <요약>"`
+- 단계가 끝나면 `docs/progress.md`에 결과를 적고 아래 커밋 규칙대로 커밋한다
 - 셸 스크립트는 bash, `set -euo pipefail`, shellcheck 경고 0
 - 스크립트는 멱등하게. 두 번 실행해도 같은 결과
+
+## 브랜치 전략
+- `main`은 항상 검증 명령이 통과하는 상태. `main`에 직접 커밋하지 않는다
+- 작업마다 `main`에서 브랜치를 딴다: `<type>/<짧은-설명>` (type은 커밋 type과 같음, 설명은 영문 kebab-case)
+  - 예: `feat/kafka-profile`, `fix/preflight-cpu-check`, `docs/impl-guide`, `chore/pin-k6`
+- 한 브랜치에는 한 가지 목적만. 커밋은 그 안에서 여러 개여도 된다
+- 끝나면 검증 명령을 통과시킨 뒤 `git switch main && git merge --no-ff <branch>`, 병합한 브랜치는 `git branch -d`로 삭제
+- 원격이 생기면 병합 대신 PR로 올린다. `git push`는 사람이 한다
+
+## 커밋 규칙
+형식:
+```
+<type>(<scope>): <요약>
+
+- <무엇을 했는지 + 필요하면 왜. 구체적 값(버전, 경로, 옵션)까지>
+- ...
+```
+- type: `feat` 기능, `fix` 버그, `chore` 설정·빌드·버전, `docs` 문서, `refactor` 동작 불변 정리, `perf` 성능, `test` 검증 스크립트
+- scope: 바뀐 영역 하나. `compose`, `docker`, `monitoring`, `grafana`, `prometheus`, `k6`, `postgres`, `scripts`, `seed`, `stub-app`, `templates`, `docs`, `make` 등
+- 요약: 한국어, 한 줄, 마침표 없음. 핵심 변경을 쉼표로 나열해도 된다
+- 본문: 요약 다음 빈 줄 하나 뒤에 `- ` 불릿 (빈 줄이 없으면 git이 본문까지 제목으로 취급해 `git log --oneline`이 깨진다). 한 불릿에 한 가지. 기본값·대체 동작 같은 주의점은 괄호로
+- 단계 완료 커밋도 같은 형식을 쓰고 본문 첫 불릿에 `stage N 완료`를 적는다
+
+예시:
+```
+chore(docker): Temurin 25 고정 2단계 빌드 Dockerfile, JAVA_OPTS 주입, GC 로그, graceful shutdown
+
+- 빌드: eclipse-temurin:25.0.4_7-jdk-noble 안에서 bootJar (의존성 레이어 분리, Gradle 캐시 마운트)
+- 실행: eclipse-temurin:25.0.4_7-jre-noble, non-root(app) 사용자, 포트 8080
+- JAVA_OPTS 기본값 -XX:+UseG1GC -Xlog:gc*:file=/logs/gc.log:time,uptime (값을 주면 대체됨. 힙·ActiveProcessorCount는 인프라가 주입)
+- exec java로 PID 1 실행 → docker stop의 SIGTERM으로 graceful shutdown
+- .dockerignore로 빌드 컨텍스트 최소화
+```
 
 ## 막혔을 때 (사람이 자리에 없다고 가정)
 - 질문하지 않는다. 가장 되돌리기 쉬운 선택을 하고 `docs/open-questions.md`에 "무엇을, 왜, 되돌리려면" 기록
