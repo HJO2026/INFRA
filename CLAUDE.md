@@ -11,7 +11,8 @@
 - `docs/progress.md`: 단계별 진행 결과 (작업하면서 갱신)
 
 ## 외부 레포
-- 스프링 앱: `/Users/heo/async/project/HJO/APP` (Makefile 기본 `APP_DIR=../APP`). 이미지는 그 레포의 `Dockerfile`로 `make build-app`
+- 스프링 앱: `/Users/heo/async/project/HJO/APP` (Makefile 기본 `APP_DIR=../APP`). 이미지는 그 레포의 `Dockerfile`로 `make build-app`.
+  Dockerfile 템플릿은 두지 않는다 (앱 레포 것이 진실의 원천)
 - 시드 데이터: APP 레포 `feat/seed-data` 브랜치의 `seed/` (생성기 방식, `seed/seed.sh s|m|l`). bench-infra에는 시드 생성·복원 코드를 두지 않는다
 
 ## 불변 규칙
@@ -34,7 +35,6 @@ monitoring/         prometheus/, grafana/{provisioning,dashboards}/
 k6/{lib,scenarios}  러너 공통 코드. 실제 워크로드 시나리오는 미결
 verify/             뼈대만 (내용은 미결)
 scripts/            preflight, reset, measure, collect, report, build-app, check-*
-templates/          impl 레포가 복사해 갈 Dockerfile, compose.override.yml 예시
 results/            측정 결과 (git 제외, 리포트 md만 커밋 가능)
 versions.env, .env.example(로컬 비밀값 예시, .env 는 git 제외), bench.config.yml, Makefile, run-test.sh
 ```

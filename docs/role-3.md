@@ -6,7 +6,7 @@
 - 모니터링 스택: Prometheus, Grafana(프로비저닝), cAdvisor, postgres_exporter
 - 측정 절차 스크립트: preflight, reset, measure, collect, report, `run-test.sh`
 - 공통 Grafana 대시보드 JSON (study-spec 8장 지표 목록)
-- 앱 Dockerfile 템플릿 (스텁 앱은 2026-09-20 제거, 앱은 `../APP`)
+- ~~앱 Dockerfile 템플릿 + 스텁 앱~~ (2026-09-20 제거. Dockerfile 은 앱 레포 것, `templates/` 도 삭제)
 - 사용 문서 (README, impl 레포 연결 가이드)
 
 ## 범위 밖 (수정 금지)

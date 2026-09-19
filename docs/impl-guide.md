@@ -31,18 +31,18 @@ server:
 비동기 적재 구현은 e2e 적재 지연을 Micrometer Timer `bench.ingest.e2e` (percentiles-histogram 켬) 로 내면 대시보드
 "e2e 적재 지연" 패널에 바로 잡힌다. 다른 이름을 쓰면 `monitoring/grafana/gen-dashboard.py` 의 쿼리를 바꾼다.
 
-## 2. Dockerfile 복사
+## 2. Dockerfile
+
+**앱 레포(`../APP`)의 `Dockerfile` 을 그대로 쓴다.** bench-infra 는 Dockerfile 템플릿을 두지 않는다
+(앱 레포가 Temurin 25 고정 2단계 빌드 + non-root + graceful shutdown 을 이미 갖고 있다).
 
 ```bash
-cp bench-infra/templates/Dockerfile impl-<name>/Dockerfile
-cd impl-<name>
-docker build -t bench/impl-<name>:v1 --build-arg JDK_IMAGE=eclipse-temurin:25-jdk .
+docker build -t bench/impl-<name>:v1 .          # impl 레포 루트에서
 ```
 
 - 빌드 컨텍스트는 Gradle 프로젝트 루트(`gradlew`, `build.gradle(.kts)`, `src/`).
-- `bootJar` 산출물 이름을 `app.jar` 로 맞추거나 (`tasks.bootJar { archiveFileName = "app.jar" }`) Dockerfile 의 `COPY` 경로를 고친다.
-- 런타임 스테이지는 비루트(`app`)로 실행되고 `curl` 이 들어 있다(healthcheck 용). 그 외 JVM 옵션·환경변수는 넣지 않는다.
 - 태그는 명시 버전만 (`latest` 금지). 측정 결과에 이미지 ID 가 기록된다.
+- 이미지에 curl·wget 이 없어도 된다. compose healthcheck 는 `bash` 의 `/dev/tcp` 로 친다 (1장).
 
 ## 3. bench-infra 에 target 등록
 
@@ -62,13 +62,76 @@ targets:
 
 ## 4. 추가 컴포넌트 (compose.override.yml)
 
-`templates/compose.override.yml` 을 복사해 시작한다. 지킬 것:
+impl 레포 루트에 `compose.override.yml` 을 두고 `-f` 로 합친다. 지킬 것:
 
 - cpuset `"0-3"` (SUT 코어 안에서), `mem_limit` 은 `docs/role-3.md` 예산표 (Kafka 1280m, Redis 320m). 예산 변경은 근거와 함께 `docs/open-questions.md` 에
 - 데이터는 named volume, bind mount 는 설정 파일만
 - 이미지 태그 고정. `versions.env` 에 태그·digest 추가 후 `make pin`
 - 회차 초기화(토픽 재생성 등)가 필요하면 `bench.config.yml reset` 섹션 확장이 필요하다. 지금은 `truncate_tables` 와 `restart_services` 만 있다 (open-questions 참고)
 - `make check-resources` 가 override 서비스도 예산표(`bench.config.yml budget`)와 대조한다. 예산표에 없는 서비스는 실패한다
+
+붙이는 법:
+
+```bash
+docker compose -f compose.yaml -f /abs/path/impl-<name>/compose.override.yml up -d --wait
+make reset COMPOSE_OVERRIDE=/abs/path/impl-<name>/compose.override.yml
+./run-test.sh impl-<name> 3      # bench.config.yml targets.<name>.override 에 적어 두면 자동
+```
+
+Kafka 를 붙이는 예시 (Redis 는 주석):
+
+```yaml
+name: bench
+
+services:
+  app:
+    environment:
+      # 예: 앱이 추가 컴포넌트 주소를 환경변수로 받는 경우
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # 예시: Kafka (KRaft 단일 노드). 도입 시 태그·digest 는 versions.env 에 추가하고 open-questions 에 근거를 적는다
+  kafka:
+    image: apache/kafka:4.0.0            # 예시 태그. 실제 도입 시 make pin 으로 digest 고정
+    container_name: bench-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 4            # study-spec 5장 baseline
+      KAFKA_HEAP_OPTS: -Xmx1g -Xms1g
+      TZ: UTC
+    volumes:
+      - kafkadata:/var/lib/kafka/data
+    cpuset: "0-3"
+    mem_limit: 1280m
+    memswap_limit: 1280m
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks: [bench]
+
+  # 예시: Redis
+  # redis:
+  #   image: redis:8.0.3-bookworm
+  #   command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+  #   cpuset: "0-3"
+  #   mem_limit: 320m
+  #   memswap_limit: 320m
+  #   networks: [bench]
+
+volumes:
+  kafkadata:
+```
 
 ## 5. 스키마·시드 (역할 1·2)
 

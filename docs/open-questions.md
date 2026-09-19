@@ -91,3 +91,11 @@
 - 확인: 루트 `.env` 가 `versions.env` 를 덮어쓰는 순서까지 동작 확인. `docker compose config -q`, `check-resources`, `check-targets` 통과
 - 되돌리려면: `compose.yaml` 을 지우면 이전처럼 `-f compose/compose.base.yml -f compose/compose.monitoring.yml --env-file versions.env` 를 붙여야 한다
 
+## 2026-09-20 / 정리 / templates·results·루트 role-3.md 삭제
+- 정한 것: `templates/` 삭제 (Dockerfile 은 앱 레포 것이 진실의 원천, compose.override 예시는 `docs/impl-guide.md` 4장 안으로 옮김),
+  `results/` 의 스텁 측정 결과 2건 삭제(디렉터리와 `.gitkeep` 은 유지. 스크립트가 여기에 쓴다), 루트 `role-3.md` 사본 삭제(`.gitignore` 줄도 제거)
+- 왜: 앱 레포가 생기면서 Dockerfile 템플릿이 이중 관리가 됐다(계약도 `SPRING_DATASOURCE_*`·`JAVA_TOOL_OPTIONS` 로 낡아 있었다).
+  스텁 결과는 스텁 앱을 지운 뒤로 참조할 대상이 없다
+- 되돌리려면: `git revert` 또는 해당 커밋에서 파일 복구. 스텁 결과는 진행 기록(`docs/progress.md`)에 수치가 남아 있다
+- 유지: `run-test.sh` 는 측정 절차 전체(preflight → (reset → measure → collect → 쿨다운) × 회차 → report)라 지우지 않는다
+
