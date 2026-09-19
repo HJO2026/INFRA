@@ -99,3 +99,11 @@
 - 되돌리려면: `git revert` 또는 해당 커밋에서 파일 복구. 스텁 결과는 진행 기록(`docs/progress.md`)에 수치가 남아 있다
 - 유지: `run-test.sh` 는 측정 절차 전체(preflight → (reset → measure → collect → 쿨다운) × 회차 → report)라 지우지 않는다
 
+## 2026-09-20 / 모니터링 / Grafana 는 기본 꺼짐
+- 정한 것: `compose/compose.monitoring.yml` 의 `grafana:` 서비스와 `grafanadata:` 볼륨을 주석 처리.
+  쓰려는 사람이 주석을 풀고 `docker compose up -d --wait`. 프로비저닝 파일(`monitoring/grafana/**`)과 대시보드 JSON 은 그대로 둔다
+- 왜: 팀 합의로 대시보드는 붙이고 싶은 사람만 붙이기로 했다. 모니터링 코어(Prometheus·cAdvisor·exporter)는 측정 판정에 필요해 그대로 둔다
+- 확인: `docker compose config --services` 에서 grafana 제외 (postgres, app, cadvisor, postgres_exporter, prometheus).
+  Prometheus 는 Grafana 를 스크레이프하지 않으므로 `check-targets` 에 영향 없음. `check-dashboard` 는 Prometheus 에 직접 질의하므로 Grafana 없이 동작
+- 되돌리려면: 그 블록들의 주석을 푼다 (예산표 `bench.config.yml budget.grafana` 는 남겨 뒀다)
+

@@ -3,7 +3,7 @@
 ## 범위
 - compose (base + monitoring, 이후 kafka/redis 프로파일 자리만)
 - 컨테이너별 cpuset·메모리 제한, PG 설정 파일(baseline 값은 study-spec 5장)
-- 모니터링 스택: Prometheus, Grafana(프로비저닝), cAdvisor, postgres_exporter
+- 모니터링 스택: Prometheus, cAdvisor, postgres_exporter (+ Grafana 프로비저닝. 2026-09-20 부터 기본 꺼짐, 쓰는 사람만 주석 해제)
 - 측정 절차 스크립트: preflight, reset, measure, collect, report, `run-test.sh`
 - 공통 Grafana 대시보드 JSON (study-spec 8장 지표 목록)
 - ~~앱 Dockerfile 템플릿 + 스텁 앱~~ (2026-09-20 제거. Dockerfile 은 앱 레포 것, `templates/` 도 삭제)
@@ -36,7 +36,7 @@ healthcheck 는 이미지에 curl 이 없어 `bash` 의 `/dev/tcp` 로 친다 (`
 | (redis, 나중) | 0-3 | 320m |
 | k6 | 4-5 | 1g |
 | prometheus | 6 | 512m |
-| grafana | 6 | 256m |
+| grafana (선택) | 6 | 256m |
 | cadvisor | 6 | 256m |
 | postgres_exporter | 6 | 64m |
 

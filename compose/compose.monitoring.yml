@@ -32,40 +32,45 @@ services:
       start_period: 5s
     networks: [bench]
 
-  grafana:
-    image: ${GRAFANA_IMAGE}
-    container_name: bench-grafana
-    environment:
-      TZ: UTC
-      GF_AUTH_ANONYMOUS_ENABLED: "true"        # 익명 조회
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-      GF_AUTH_BASIC_ENABLED: "true"
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      GF_USERS_DEFAULT_THEME: light
-      GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-      GF_NEWS_NEWS_FEED_ENABLED: "false"
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/bench-overview.json
-    volumes:
-      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafanadata:/var/lib/grafana
-    ports:
-      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
-    cpuset: *mon-cpuset
-    mem_limit: 256m
-    memswap_limit: 256m
-    depends_on:
-      prometheus:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/api/health | grep -q '\"ok\"'"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-      start_period: 10s
-    networks: [bench]
+  # --- Grafana (기본 꺼짐) ---------------------------------------------------
+  # 팀 합의: 대시보드는 붙이고 싶은 사람만 붙인다. 쓰려면 아래 블록과 맨 아래 grafanadata 볼륨의 주석을 풀고
+  #   docker compose up -d --wait
+  # 그다음 http://localhost:3000 (익명 조회, 편집은 admin/admin). 대시보드는 프로비저닝으로 자동 등록된다.
+  # Grafana 없이도 측정과 판정은 그대로 된다 (Prometheus 가 지표를 모으고, make check-dashboard 가 패널 쿼리를 직접 실행한다).
+#  grafana:
+#    image: ${GRAFANA_IMAGE}
+#    container_name: bench-grafana
+#    environment:
+#      TZ: UTC
+#      GF_AUTH_ANONYMOUS_ENABLED: "true"        # 익명 조회
+#      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+#      GF_AUTH_BASIC_ENABLED: "true"
+#      GF_SECURITY_ADMIN_USER: admin
+#      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+#      GF_USERS_DEFAULT_THEME: light
+#      GF_ANALYTICS_REPORTING_ENABLED: "false"
+#      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+#      GF_NEWS_NEWS_FEED_ENABLED: "false"
+#      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/bench-overview.json
+#    volumes:
+#      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+#      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+#      - grafanadata:/var/lib/grafana
+#    ports:
+#      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
+#    cpuset: *mon-cpuset
+#    mem_limit: 256m
+#    memswap_limit: 256m
+#    depends_on:
+#      prometheus:
+#        condition: service_healthy
+#    healthcheck:
+#      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3000/api/health | grep -q '\"ok\"'"]
+#      interval: 5s
+#      timeout: 3s
+#      retries: 12
+#      start_period: 10s
+#    networks: [bench]
 
   cadvisor:
     image: ${CADVISOR_IMAGE}
@@ -124,4 +129,4 @@ services:
 
 volumes:
   promdata:
-  grafanadata:
+#  grafanadata:

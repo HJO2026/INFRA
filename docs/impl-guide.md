@@ -145,4 +145,4 @@ volumes:
 
 `results/<run-id>/report.md` 에 회차별 처리량·p50/p95/p99·에러율, 유효 회차 중앙값, 편차(%) 표가 생긴다.
 `dropped_iterations ≠ 0` 또는 4xx 가 있으면 그 회차는 무효로 표시된다. 각 회차의 시간 범위는 `metrics.json` 의 `started_at`/`ended_at`.
-Grafana(`http://localhost:3000`, 익명 조회) 의 `bench overview` 대시보드에서 그 범위를 보고 스크린샷을 리포트에 붙인다.
+Grafana 를 켰다면(`compose/compose.monitoring.yml` 의 주석 해제) `http://localhost:3000` 의 `bench overview` 에서 그 구간을 보고 스크린샷을 붙인다. 기본은 꺼져 있다.
