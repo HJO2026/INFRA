@@ -52,34 +52,39 @@ docker compose -f compose.yaml -f /path/impl/compose.override.yml up -d --wait  
 측정용 postgres(`bench-postgres`)로 한 번 옮겨야 한다.
 
 ```bash
-# 0) 측정 스택을 먼저 띄운다
+# 0) 측정 스택을 먼저 띄운다. 아래 명령은 전부 bench-infra 레포 루트에서 친다
 docker compose up -d --wait
 
-# 1) 앱 레포에서 시드 생성 (규모: s | m | l). 앱 레포의 .env 가 필요하다 (APP/seed/README.md)
-bash ../APP/seed/seed.sh s
+# 1) 앱 레포에서 시드 생성 (규모: s | m | l)
+#    호스트 5432 가 다른 컨테이너에 잡혀 있으면 PGPORT 로 피한다 (docker ps 로 확인)
+PGPORT=55432 bash ../APP/seed/seed.sh s
 
-# 2) 시드 postgres 의 bench DB 를 측정용 postgres 로 옮긴다 (한 줄).
-#    app 을 먼저 멈춘다. 접속 세션이 남아 있으면 --clean 이 실패한다
-SEED_DC="docker compose -f ../APP/seed/compose.seed.yml"
-BENCH_DC="docker compose"
-$BENCH_DC stop app \
-  && $SEED_DC exec -T postgres pg_dump -U hjo -Fc -Z 6 bench \
-     | $BENCH_DC exec -T postgres pg_restore -U bench -d bench --clean --if-exists --no-owner --no-privileges \
-  && $BENCH_DC exec -T postgres psql -U bench -d bench -c 'VACUUM ANALYZE' \
-  && $BENCH_DC start app
+# 2) app 을 멈춘다. 접속 세션이 남아 있으면 --clean 이 실패한다
+docker compose stop app
+
+# 3) 시드 postgres 의 bench DB 를 측정용 postgres 로 옮긴다 (파이프 한 줄)
+docker compose -f ../APP/seed/compose.seed.yml exec -T postgres pg_dump -U hjo -Fc -Z 6 bench \
+  | docker compose exec -T postgres pg_restore -U bench -d bench --clean --if-exists --no-owner --no-privileges
+
+# 4) 통계 갱신 후 app 재시작
+docker compose exec -T postgres psql -U bench -d bench -c 'VACUUM ANALYZE'
+docker compose start app
 ```
 
+- **명령을 변수에 넣지 말 것.** `DC="docker compose"` 후 `$DC ps` 는 zsh 에서 `command not found: docker compose` 가 난다
+  (zsh 는 변수를 단어로 쪼개지 않는다). 위처럼 명령을 그대로 적는다
+- 앱 레포 시드는 자기 compose(`hjo-seed`)로 postgres 를 따로 띄운다. 측정용 `bench-postgres` 와 별개이고, 옮기고 나면 `docker compose -f ../APP/seed/compose.seed.yml down` 으로 내려도 된다
 - 파이프로 넘기므로 `pg_restore -j` (병렬)는 쓸 수 없다. 병렬 복원이 필요하면 덤프를 파일로 받아서 복원한다
 - 복원 후 `VACUUM ANALYZE` 는 필수다 (통계가 없으면 실행 계획이 달라져 측정이 무의미해진다)
-- 규모를 바꿀 때마다 1)·2)를 다시 한다. 앱 레포 쪽은 템플릿이 이미 있으면 복제만 해서 빠르다
+- 덤프에는 `flyway_schema_history` 가 들어 있어서, 복원 뒤 앱이 다시 떠도 마이그레이션을 재적용하지 않는다
+- 규모를 바꿀 때마다 1)~4)를 다시 한다. 앱 레포 쪽은 템플릿이 이미 있으면 복제만 해서 빠르다
 
 컨테이너 안으로 **스크립트를 한 줄로 밀어 넣는** 방법 (위 2)와 같은 패턴):
 
 ```bash
-BENCH_DC="docker compose"
-$BENCH_DC exec -T postgres psql -U bench -d bench -v ON_ERROR_STOP=1 -f - < 어떤.sql   # SQL 파일
-$BENCH_DC exec -T postgres bash -s < 어떤.sh                                          # 셸 스크립트
-$BENCH_DC cp 어떤파일 postgres:/tmp/                                                   # 파일만 넣기
+docker compose exec -T postgres psql -U bench -d bench -v ON_ERROR_STOP=1 -f - < 어떤.sql   # SQL 파일
+docker compose exec -T postgres bash -s < 어떤.sh                                          # 셸 스크립트
+docker compose cp 어떤파일 postgres:/tmp/                                                   # 파일만 넣기
 ```
 
 Prometheus: <http://localhost:9090>.
