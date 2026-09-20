@@ -65,8 +65,7 @@ measure:
 
 # 측정 대상(target). run-test.sh <target>[,<target>...] <runs> 의 이름. image 가 없으면 현재 APP_IMAGE(versions.env 또는 셸) 사용.
 # impl 레포 추가: 이름, image(태그 고정), scenario(k6/scenarios/<name>.js), override(impl 의 compose.override.yml 절대경로, 선택)
-# 예)
-#   hjo:
-#     image: hjo-app:dev
-#     scenario: <k6/scenarios 의 파일명>
 targets:
+  hjo:
+    image: hjo-app:dev
+    scenario: get-smoke
