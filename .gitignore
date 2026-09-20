@@ -11,3 +11,8 @@ results/**
 compose/compose.local.yml
 .env
 .env.local
+
+# Claude Code 로컬 설정 (커밋하지 않는다. 각자 로컬에서만 사용)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
