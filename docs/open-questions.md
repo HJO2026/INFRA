@@ -107,3 +107,35 @@
   Prometheus 는 Grafana 를 스크레이프하지 않으므로 `check-targets` 에 영향 없음. `check-dashboard` 는 Prometheus 에 직접 질의하므로 Grafana 없이 동작
 - 되돌리려면: 그 블록들의 주석을 푼다 (예산표 `bench.config.yml budget.grafana` 는 남겨 뒀다)
 
+
+## 2026-09-20 / 윈도우 지원 / 실행 환경을 Git Bash·WSL2 까지 넓힘
+- 정한 것: 스크립트가 플랫폼을 직접 감지한다 (`scripts/lib/common.sh` 의 `BENCH_OS`). mac / linux / windows 세 갈래.
+  WSL2 안에서 돌리면 linux 로 잡히고 그게 맞다
+- 왜: 스터디 구성원 중 인텔 윈도우 호스트가 있다. 기존 코드는 "Darwin 아니면 리눅스" 라 Git Bash 에서 `/etc/os-release` 를 읽다 죽었다
+- 되돌리려면: `BENCH_OS` 분기를 지우고 `uname -s` 직접 비교로 되돌린다
+
+## 2026-09-20 / 윈도우 지원 / MSYS 경로 변환은 전부 끄지 않는다
+- 정한 것: `MSYS2_ARG_CONV_EXCL='/results;/k6;/seed;/logs'` 만 설정. `MSYS_NO_PATHCONV=1` 을 전역으로 켜지 않는다.
+  예외로 `preflight.sh` 의 `df -Pk /` 한 줄에만 붙였다
+- 왜: Git Bash 는 슬래시로 시작하는 인자를 윈도우 경로로 바꾼다. 이 변환은 **호스트 경로에는 있어야** 맞다
+  (`build-app.sh` 가 빌드 컨텍스트로 넘기는 경로). 전역으로 끄면 앱 빌드가 깨진다. 컨테이너 안 경로만 제외하는 게 맞다
+- 되돌리려면: common.sh 의 해당 블록 삭제. 앱 레포 `seed/seed.sh` 는 호출마다 직접 붙이는 방식을 쓴다
+
+## 2026-09-20 / 윈도우 지원 / 파이썬 실행 파일 이름
+- 정한 것: `python3` 를 직접 부르지 않고 `py3` 함수를 쓴다. `python3` → `python` → `py -3` 순으로 실제 실행해 보고 고른다
+- 왜: 윈도우에는 `python3` 가 없고 `python` 이나 `py -3` 만 있는 경우가 많다. 게다가 윈도우 기본 PATH 의 `python3` 는
+  Microsoft Store 를 여는 껍데기라 `command -v` 로는 못 거른다. `cfg()` 가 파이썬을 쓰므로 이게 막히면 전부 멈춘다
+- 되돌리려면: `py3` 호출을 `python3` 로 되돌리고 `resolve_python` 삭제
+
+## 2026-09-20 / 윈도우 지원 / cAdvisor 마운트 경로를 변수로
+- 정한 것: `CADVISOR_DOCKER_ROOT`, `CADVISOR_CONTAINERD_SOCK` 로 `.env` 에서 바꿀 수 있게 했다. 기본값은 기존 값 그대로.
+  `check-targets.sh` 가 컨테이너별 지표가 나오는지 확인하고 안 나오면 경고한다
+- 왜: 이 두 경로는 내가 macOS Docker Desktop VM 을 보고 맞춘 값이다. **윈도우에서는 확인하지 못했다.**
+  WSL2 백엔드도 같은 경로일 가능성이 높지만 다르면 자원 패널만 빈다. 측정 자체는 계속 된다
+- 되돌리려면: compose 의 `${...:-}` 를 고정 경로로 되돌린다
+- **확인 필요**: 윈도우 사용자가 `make check-targets` 결과를 알려 줄 것
+
+## 2026-09-20 / 윈도우 지원 / .gitattributes 로 줄바꿈 고정
+- 정한 것: `* text=auto eol=lf` + 확장자별 `eol=lf`
+- 왜: Git 기본값(`core.autocrlf=true`)으로 윈도우에서 클론하면 셸 스크립트가 CRLF 가 되고 bash 가 첫 줄에서 죽는다
+- 되돌리려면: `.gitattributes` 삭제. 단, 이미 CRLF 로 받은 사람은 `git add --renormalize .` 가 필요하다

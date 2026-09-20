@@ -81,12 +81,16 @@ services:
       - --disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,process,referenced_memory,resctrl,sched,tcp,udp,percpu,perf_event
     privileged: true            # cgroup 읽기에 필요. macOS Docker Desktop 에서는 일부 지표(디스크 IO)가 비거나 부정확할 수 있다
     volumes:
-      # Docker Desktop(macOS) 주의: /var/run, / 같은 경로는 VM 이 아니라 Mac 의 디렉터리로 매핑된다.
-      # /var/run/docker.sock 과 /var/lib/docker 만 VM 쪽으로 특별 처리되므로 디렉터리(/var/run) 대신 소켓 파일을 직접 마운트한다.
-      # /rootfs, /dev/disk 마운트(리눅스 호스트용 표준 구성)는 여기서는 의미가 없어 뺐다. 리눅스 호스트면 추가해도 된다.
+      # 여기 경로는 전부 "Docker 데몬이 도는 곳" 기준이다. Docker Desktop(맥·윈도우)이면 그 VM 안,
+      # 리눅스면 호스트 자체다. 맥에서는 /var/run 같은 디렉터리가 VM 이 아니라 맥 쪽으로 매핑되므로
+      # 디렉터리 대신 소켓 파일을 직접 마운트한다. 윈도우(WSL2 백엔드)도 같은 경로로 동작하는 것으로 본다.
+      #
+      # 아래 두 개가 없으면 cAdvisor 의 docker factory 등록이 실패하고 컨테이너별 지표 대신
+      # 루트 cgroup 하나만 나온다. 플랫폼에 따라 경로가 다르면 .env 에서 바꾼다 (docs/open-questions.md).
+      # 리눅스 호스트에서 지표가 비면 표준 구성(/:/rootfs:ro, /dev/disk/:/dev/disk:ro)을 추가한다.
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro   # docker factory 가 cgroup 조회에 씀 (/run 은 VM 경로)
-      - /var/lib/docker/:/var/lib/docker:ro                                  # 컨테이너 rw 레이어 식별에 필요
+      - ${CADVISOR_CONTAINERD_SOCK:-/run/containerd/containerd.sock}:/run/containerd/containerd.sock:ro
+      - ${CADVISOR_DOCKER_ROOT:-/var/lib/docker}:/var/lib/docker:ro
       - /sys:/sys:ro
     ports:
       - "127.0.0.1:${CADVISOR_HOST_PORT:-8081}:8080"

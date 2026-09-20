@@ -4,13 +4,13 @@
 # 편차 = (max − min) / 중앙값 × 100. 임계값 초과 시 경고 (bench.config.yml measure.deviation_warn_pct)
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
-require_cmd python3
+resolve_python
 [[ -n "${RUN_ID:-}" ]] || die "RUN_ID 가 필요하다"
 run_dir="$REPO_ROOT/results/$RUN_ID"
 [[ -d "$run_dir" ]] || die "결과 디렉터리 없음: $run_dir"
 WARN_PCT="$(cfg measure.deviation_warn_pct)"
 
-python3 - "$run_dir" "$RUN_ID" "$WARN_PCT" <<'PY'
+py3 - "$run_dir" "$RUN_ID" "$WARN_PCT" <<'PY'
 import json, sys, os, glob, statistics, datetime
 run_dir, run_id, warn_pct = sys.argv[1], sys.argv[2], float(sys.argv[3])
 run_meta = json.load(open(os.path.join(run_dir, "run.json"))) if os.path.exists(os.path.join(run_dir, "run.json")) else {}

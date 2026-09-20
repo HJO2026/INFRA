@@ -5,7 +5,7 @@
 #       scripts/collect.sh <target> <run_no>
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
-require_cmd python3
+resolve_python
 [[ -n "${RUN_ID:-}" ]] || die "RUN_ID 가 필요하다"
 run_dir="$REPO_ROOT/results/$RUN_ID"
 [[ -d "$run_dir" ]] || die "결과 디렉터리 없음: $run_dir"
@@ -13,7 +13,7 @@ run_dir="$REPO_ROOT/results/$RUN_ID"
 collect_one() {
   local d="$1"
   [[ -f "$d/summary.json" ]] || { warn "summary.json 없음: $d"; return 1; }
-  python3 - "$d" <<'PY'
+  py3 - "$d" <<'PY'
 import json, sys, os
 d = sys.argv[1]
 s = json.load(open(os.path.join(d, "summary.json")))

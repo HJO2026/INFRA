@@ -46,7 +46,7 @@ check-dashboard: ## 대시보드 패널 쿼리를 Prometheus 에 실행해 결�
 	scripts/check-dashboard.sh
 
 dashboard: ## monitoring/grafana/gen-dashboard.py 로 대시보드 JSON 재생성
-	python3 monitoring/grafana/gen-dashboard.py
+	scripts/dashboard.sh
 
 preflight: ## VM 리소스, 디스크, 이미지 digest, 컨테이너 상태 점검
 	scripts/preflight.sh

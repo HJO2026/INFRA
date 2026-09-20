@@ -14,6 +14,25 @@ COMPOSE_FILE="$REPO_ROOT/compose.yaml"   # compose/ 아래 파일들을 include 
 COMPOSE_OVERRIDE="${COMPOSE_OVERRIDE:-}"
 export TZ=UTC
 
+# --- 플랫폼 ---
+# BENCH_OS: mac | linux | windows. windows 는 Git Bash(MSYS2) 로 돌릴 때다.
+# WSL2 안에서 돌리면 uname 이 Linux 라 linux 로 잡히고, 그게 맞다 (리눅스처럼 동작한다).
+case "$(uname -s)" in
+  Darwin)               BENCH_OS=mac ;;
+  MINGW*|MSYS*|CYGWIN*) BENCH_OS=windows ;;
+  *)                    BENCH_OS=linux ;;
+esac
+export BENCH_OS
+
+# Git Bash 는 슬래시로 시작하는 인자를 윈도우 경로로 바꿔서 docker 에 넘긴다.
+# 호스트 경로(build-app.sh 의 빌드 컨텍스트 등)에는 이 변환이 **있어야** 맞고,
+# 컨테이너 안 경로(measure.sh 의 --summary-export /results/...)에는 **없어야** 맞다.
+# 그래서 전부 끄지 않고(그러면 build-app 이 깨진다) 컨테이너 경로 접두사만 제외한다.
+# 한 번만 빼야 하는 경우(preflight 의 `df -Pk /`)는 그 명령에만 MSYS_NO_PATHCONV=1 을 붙인다.
+if [[ "$BENCH_OS" == "windows" ]]; then
+  export MSYS2_ARG_CONV_EXCL='/results;/k6;/seed;/logs'
+fi
+
 log()  { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; }
 ok()   { printf '[%s] OK   %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; }
 warn() { printf '[%s] WARN %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; }
@@ -24,6 +43,31 @@ require_cmd() {
   for c in "$@"; do
     command -v "$c" >/dev/null 2>&1 || die "필요한 명령이 없다: $c"
   done
+}
+
+# --- 파이썬 3 ---
+# 윈도우에는 python3 가 없고 python 이나 `py -3` 만 있는 경우가 많다. 게다가 윈도우 기본 PATH 의
+# python3 는 Microsoft Store 를 여는 껍데기라 command -v 로는 걸러지지 않는다. 그래서 실제로 돌려 보고 고른다.
+PYTHON_BIN=""; PYTHON_ARG=""
+resolve_python() {
+  [[ -n "$PYTHON_BIN" ]] && return 0
+  local c
+  for c in python3 python; do
+    if command -v "$c" >/dev/null 2>&1 \
+      && "$c" -c 'import sys; raise SystemExit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+      PYTHON_BIN="$c"; PYTHON_ARG=""; return 0
+    fi
+  done
+  if command -v py >/dev/null 2>&1 && py -3 -c 'import sys' >/dev/null 2>&1; then
+    PYTHON_BIN="py"; PYTHON_ARG="-3"; return 0
+  fi
+  die "파이썬 3 을 찾지 못했다 (python3 → python → py -3 순으로 확인). 설치한 뒤 다시 실행할 것"
+}
+
+# py3 <인자...>   파이썬 3 실행. heredoc 으로 넘긴 표준입력도 그대로 전달된다
+py3() {
+  resolve_python
+  if [[ -n "$PYTHON_ARG" ]]; then "$PYTHON_BIN" "$PYTHON_ARG" "$@"; else "$PYTHON_BIN" "$@"; fi
 }
 
 # versions.env 의 KEY=value 를 현재 셸로 읽는다 (셸에 이미 있는 값이 우선)
@@ -57,7 +101,7 @@ compose() {
 cfg() {
   local path="$1"
   [[ -f "$BENCH_CONFIG" ]] || die "bench.config.yml 없음: $BENCH_CONFIG"
-  python3 - "$BENCH_CONFIG" "$path" <<'PY'
+  py3 - "$BENCH_CONFIG" "$path" <<'PY'
 import sys, re
 path = sys.argv[2].split('.')
 # 의존성 없이 쓰기 위한 아주 작은 YAML 부분집합 파서 (2칸 들여쓰기, 스칼라, 문자열 배열)

@@ -5,7 +5,8 @@
 # compose 에 정의된 서비스는 전부 예산표에 있어야 하고 값이 같아야 한다. 예산표에만 있는 서비스(kafka, redis)는 건너뛴다.
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
-require_cmd docker jq python3
+require_cmd docker jq
+resolve_python
 load_versions
 
 to_bytes() {

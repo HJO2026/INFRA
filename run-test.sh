@@ -5,7 +5,8 @@
 # 환경변수: COOLDOWN_SECONDS, RATE, WARMUP_SECONDS, STEADY_SECONDS, PRE_VUS, MAX_VUS (bench.config.yml 값 덮어쓰기)
 # shellcheck source=scripts/lib/common.sh
 source "$(dirname "$0")/scripts/lib/common.sh"
-require_cmd docker jq python3
+require_cmd docker jq
+resolve_python
 
 usage() { echo "usage: $0 <target>[,<target>...] <runs>" >&2; exit 2; }
 [[ $# -eq 2 ]] || usage
@@ -37,7 +38,7 @@ log "run_id=$RUN_ID targets=${TARGETS[*]} runs=$RUNS cooldown=${COOLDOWN}s seed=
 total=$(( RUNS * ${#TARGETS[@]} )); done_n=0
 for (( run_no = 1; run_no <= RUNS; run_no++ )); do
   if (( ${#TARGETS[@]} > 1 )); then
-    order="$(python3 -c 'import random,sys; l=sys.argv[2:]; random.Random(int(sys.argv[1])).shuffle(l); print(" ".join(l))' "$(( SEED + run_no ))" "${TARGETS[@]}")"
+    order="$(py3 -c 'import random,sys; l=sys.argv[2:]; random.Random(int(sys.argv[1])).shuffle(l); print(" ".join(l))' "$(( SEED + run_no ))" "${TARGETS[@]}")"
   else
     order="${TARGETS[0]}"
   fi

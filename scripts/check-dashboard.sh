@@ -4,14 +4,15 @@
 # 사용: scripts/check-dashboard.sh [dashboard.json]   (PROM_URL 환경변수로 주소 변경)
 # shellcheck source=lib/common.sh
 source "$(dirname "$0")/lib/common.sh"
-require_cmd curl python3
+require_cmd curl
+resolve_python
 
 DASH="${1:-$REPO_ROOT/monitoring/grafana/dashboards/bench-overview.json}"
 PROM_URL="${PROM_URL:-http://127.0.0.1:${PROM_HOST_PORT:-9090}}"
 [[ -f "$DASH" ]] || die "대시보드 없음: $DASH"
 curl -fsS "$PROM_URL/-/ready" >/dev/null || die "Prometheus 응답 없음: $PROM_URL"
 
-python3 - "$DASH" "$PROM_URL" <<'PY'
+py3 - "$DASH" "$PROM_URL" <<'PY'
 import json, sys, urllib.request, urllib.parse
 dash, prom = sys.argv[1], sys.argv[2]
 d = json.load(open(dash))

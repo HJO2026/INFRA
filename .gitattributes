@@ -1,0 +1,29 @@
+# 줄바꿈 고정. 윈도우에서 클론해도 LF 로 받는다.
+# 이게 없으면 Git 기본값(core.autocrlf=true)이 셸 스크립트를 CRLF 로 바꾸고,
+# bash 가 첫 줄에서 `$'\r': command not found` 로 죽는다.
+
+* text=auto eol=lf
+
+# 컨테이너 안에서 실행되거나 bash 가 읽는 것들. 반드시 LF
+*.sh      text eol=lf
+*.bash    text eol=lf
+*.js      text eol=lf
+*.py      text eol=lf
+*.sql     text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.conf    text eol=lf
+*.env     text eol=lf
+Makefile  text eol=lf
+run-test.sh text eol=lf
+versions.env text eol=lf
+.env.example text eol=lf
+
+# 바이너리. 손대지 않는다
+*.png     binary
+*.jpg     binary
+*.gz      binary
+*.zip     binary
+*.dump    binary
