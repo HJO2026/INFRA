@@ -64,6 +64,11 @@ resolve_python() {
   die "파이썬 3 을 찾지 못했다 (python3 → python → py -3 순으로 확인). 설치한 뒤 다시 실행할 것"
 }
 
+# 탭으로 나뉜 줄을 보기 좋게 정렬한다. Git Bash 에는 column 이 없을 수 있어서 없으면 탭 그대로 낸다
+tabalign() {
+  if command -v column >/dev/null 2>&1; then column -t -s $'\t'; else cat; fi
+}
+
 # py3 <인자...>   파이썬 3 실행. heredoc 으로 넘긴 표준입력도 그대로 전달된다
 py3() {
   resolve_python

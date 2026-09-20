@@ -17,7 +17,7 @@ while :; do
       [[ "$health" == "up" ]] || all_up=0
     done
     if [[ $all_up -eq 1 ]]; then
-      jq -r '.data.activeTargets[] | "\(.labels.job)\t\(.scrapeUrl)\t\(.health)\tlast=\(.lastScrape[0:19])"' <<< "$json" | column -t
+      jq -r '.data.activeTargets[] | "\(.labels.job)\t\(.scrapeUrl)\t\(.health)\tlast=\(.lastScrape[0:19])"' <<< "$json" | tabalign
       ok "Prometheus 타깃 전부 up"
 
       # cAdvisor 가 up 이어도 마운트가 플랫폼과 안 맞으면 컨테이너별 지표 대신 루트 cgroup 하나만 나온다.
@@ -35,7 +35,7 @@ while :; do
     fi
   fi
   if (( $(date +%s) >= deadline )); then
-    [[ -n "$json" ]] && jq -r '.data.activeTargets[] | "\(.labels.job)\t\(.scrapeUrl)\t\(.health)\t\(.lastError)"' <<< "$json" | column -t
+    [[ -n "$json" ]] && jq -r '.data.activeTargets[] | "\(.labels.job)\t\(.scrapeUrl)\t\(.health)\t\(.lastError)"' <<< "$json" | tabalign
     die "Prometheus 타깃 중 up 이 아닌 것이 있다 ($PROM_URL)"
   fi
   sleep 3
