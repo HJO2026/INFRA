@@ -61,50 +61,42 @@ make pin          # versions.env 의 이미지 digest 채우기 (최초 1회)
 make build-app    # ../APP 의 Dockerfile 로 hjo-app:dev 빌드
 ```
 
-### 4. 스택 띄우기
+### 4. 시드 데이터 넣기 (스택도 같이 올라온다)
 
 ```bash
-docker compose up -d --wait
+make seed PROFILE=s
 ```
 
-postgres, app, prometheus, cadvisor, postgres_exporter 가 뜬다. Grafana 는 기본으로 꺼져 있다.
+규모는 `s` / `m` / `l` 이고 처음이면 `s` 다. S 는 약 40초 걸린다 (글 5만, 댓글 15만, 조회 이벤트 30만).
+
+**이 명령이 스택까지 올려 준다.** 빈 볼륨 상태에서 `docker compose up` 을 먼저 하면 측정 대상 DB(`bench`)가
+아직 없어서 앱이 기동에 실패한다. 그래서 첫 순서는 시드다.
+
+시드를 **만드는** 것은 앱 레포의 생성기가 한다. 이 명령은 그 생성기를 측정 스택과 **같은 compose 프로젝트**로
+돌려 주는 껍데기다. 그래서 postgres 컨테이너와 볼륨이 하나뿐이고, 덤프로 옮기는 단계가 없다.
+
+안에서 일어나는 일:
+
+1. `app` 과 `postgres_exporter` 를 멈춘다. 측정 DB 를 갈아끼우려면 접속 세션이 0이어야 한다
+2. 앱 레포 생성기를 돌린다. 이때 postgres 는 **시드용 설정**(WAL 4GB, 자원 제한 없음)으로 뜬다
+3. 끝나면 `docker compose up -d --wait` 로 **측정용 설정**(cpuset 0-3, 메모리 1GB, `postgres/postgresql.conf`)으로 되돌리고 나머지 서비스도 올린다
+4. 테이블별 행 수를 찍는다
+
+데이터는 볼륨에 있으므로 컨테이너가 다시 만들어져도 그대로다. 규모를 바꿀 때도 같은 명령이고,
+템플릿이 이미 있으면 복제만 해서 빠르다.
+
+### 5. 점검
 
 ```bash
 make check-resources    # cpuset·메모리가 예산표와 같은지
 make check-targets      # Prometheus 가 전부 긁고 있는지
 ```
 
-> 앱이 `exited (1)` 로 죽고 로그에 `Found non-empty schema(s) "public" but no schema history table` 가 보이면
-> 예전 볼륨이 남은 것이다. [문제 생기면](#문제-생기면) 참고.
-
-### 5. 시드 데이터 넣기
-
-시드는 앱 레포의 생성기가 만든다. 생성기는 **자기 postgres**(프로젝트 `hjo-seed`)에 만들므로 측정용으로 한 번 옮겨야 한다.
-규모는 `s`(글 5만) / `m` / `l` 중 고른다. 처음이면 `s` 로 한다.
+두 번째 실행부터는 스택을 이렇게 올리고 내린다. 시드가 이미 들어 있으면 `make seed` 를 다시 할 필요가 없다.
 
 ```bash
-# 5-1) 생성. 호스트 5432 가 다른 컨테이너에 잡혀 있으면 PGPORT 로 피한다
-PGPORT=55432 bash ../APP/seed/seed.sh s
-
-# 5-2) 이 컴퓨터에서 처음 돌릴 때만 필요하다 (위 명령이 "[완료]" 없이 조용히 끝난 경우)
-PGPORT=55432 docker compose -f ../APP/seed/compose.seed.yml exec -T postgres \
-  psql -U hjo -d postgres -c "CREATE DATABASE bench TEMPLATE seed_s STRATEGY FILE_COPY"
-
-# 5-3) 측정용 postgres 로 옮긴다. app 을 먼저 멈춰야 --clean 이 성공한다
-docker compose stop app
-PGPORT=55432 docker compose -f ../APP/seed/compose.seed.yml exec -T postgres pg_dump -U hjo -Fc -Z 6 bench \
-  | docker compose exec -T postgres pg_restore -U bench -d bench --clean --if-exists --no-owner --no-privileges
-
-# 5-4) 통계를 갱신하고 app 을 다시 띄운다. VACUUM ANALYZE 는 건너뛰면 안 된다
-docker compose exec -T postgres psql -U bench -d bench -c 'VACUUM ANALYZE'
-docker compose up -d --wait app
-
-# 5-5) 확인. S 기준 posts 50000 / users 15000
-docker compose exec -T postgres psql -U bench -d bench -c \
-  "SELECT 'posts' t, count(*) FROM posts UNION ALL SELECT 'users', count(*) FROM users"
-
-# 5-6) 시드용 postgres 는 이제 내려도 된다 (VM 자원을 아낀다)
-PGPORT=55432 docker compose -f ../APP/seed/compose.seed.yml down
+docker compose up -d --wait
+docker compose down             # 볼륨 유지
 ```
 
 ### 6. 측정
@@ -209,7 +201,8 @@ docker compose config -q         # 설정 검증
 | `make help` | 타깃 목록 |
 | `make pin` / `make pin-check` | `versions.env` digest 갱신 / 일치 확인 |
 | `make build-app` | `APP_DIR` 의 Dockerfile 로 `APP_IMAGE` 빌드 |
-| `make preflight` | VM 자원, 디스크, digest, 컨테이너 상태, 예산, 외부 컨테이너 점검 |
+| `make seed PROFILE=s` | 앱 레포 생성기를 같은 프로젝트로 돌려 시드를 넣는다 (`s`/`m`/`l`) |
+| `make preflight` | VM 자원, 디스크, digest, 컨테이너 상태, 예산, 외부 컨테이너, 시드 이미지 일치 점검 |
 | `make check-resources` | cpuset·mem_limit 을 예산표와 대조 |
 | `make check-targets` | Prometheus 타깃 전부 up + cAdvisor 컨테이너별 지표 확인 |
 | `make check-dashboard` | 대시보드 패널 쿼리 실행, 필수 패널이 비면 실패 |
@@ -231,6 +224,7 @@ docker compose config -q         # 설정 검증
 |---|---|
 | `make pin` | `scripts/pin-versions.sh` |
 | `make build-app` | `scripts/build-app.sh` |
+| `make seed PROFILE=s` | `scripts/seed.sh s` |
 | `make preflight` | `scripts/preflight.sh` |
 | `make check-resources` | `scripts/check-resources.sh` |
 | `make check-targets` | `scripts/check-targets.sh` |
@@ -284,6 +278,9 @@ Grafana 없이도 측정·판정은 그대로다. 지표는 Prometheus 가 모�
 
 cpuset 배치: SUT(app, postgres) `0-3`, k6 `4-5`, 모니터링 `6`. 컨테이너별 메모리는 `bench.config.yml` 의 `budget`.
 
+compose 프로젝트 이름은 `hjo-bench` 다. 앱 레포 시드 생성기도 같은 이름으로 돌려야 같은 DB 를 쓴다
+(`make seed` 가 알아서 맞춘다).
+
 호스트 포트: 8080(app), 15432(postgres), 9090(prometheus), 8081(cadvisor), 9187(exporter), 3000(grafana).
 충돌하면 `.env` 에서 `APP_HOST_PORT`, `PG_HOST_PORT`, `PROM_HOST_PORT`, `GRAFANA_HOST_PORT` 로 바꾼다.
 
@@ -313,7 +310,7 @@ docker compose down -v && docker compose up -d --wait
 docker ps --format '{{.Names}}\t{{.Ports}}'
 ```
 
-앱 레포 시드는 5432 를 쓰므로 `PGPORT=55432` 를 붙인다 (위 5번 참고).
+postgres 의 호스트 포트는 `.env` 의 `PGPORT` 로 바꾼다 (기본 15432). 시드 생성기도 같은 변수를 쓴다.
 
 **`command not found: docker compose`**
 
@@ -358,5 +355,8 @@ docs/               study-spec, role-3, open-questions, progress, impl-guide, ha
 - `jvm_gc_pause_*` 는 첫 GC 이후에만 생긴다. 가벼운 부하에서는 비어 있는 게 정상
 - 서버 지연 백분위·톰캣 패널은 앱에 `percentiles-histogram` 과 `tomcat.mbeanregistry` 설정이 있어야 채워진다 (`docs/impl-guide.md`)
 - postgres 18 이미지는 볼륨 루트가 `/var/lib/postgresql` (PGDATA 는 `18/docker` 하위)
-- 시드를 파이프로 옮기므로 `pg_restore -j` (병렬)는 쓸 수 없다. 병렬이 필요하면 덤프를 파일로 받는다
-- 덤프에 `flyway_schema_history` 가 들어 있어 복원 뒤 앱이 다시 떠도 마이그레이션을 재적용하지 않는다
+- 시드 생성기가 Flyway 로 마이그레이션을 적용하고 `flyway_schema_history` 까지 채운다. 그래서 앱이 나중에 떠도 재적용하지 않는다
+- 측정 DB 는 템플릿에서 파일째 복제된다. 플래너 통계(`pg_statistic`)는 같이 복사되지만
+  `pg_stat_user_tables.n_live_tup` 같은 누적 통계는 0 으로 보인다. 행 수는 `pg_class.reltuples` 로 본다
+- 시드 생성기와 측정용 postgres 는 **같은 볼륨**을 쓴다. 이미지 태그가 갈리면 PGDATA 를 서로 못 읽으므로
+  `make preflight` 가 두 태그를 대조한다

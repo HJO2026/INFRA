@@ -2032,7 +2032,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (svc) (rate(container_cpu_usage_seconds_total{project=\"bench\"}[$__rate_interval]))",
+          "expr": "sum by (svc) (rate(container_cpu_usage_seconds_total{project=\"hjo-bench\"}[$__rate_interval]))",
           "legendFormat": "{{svc}}",
           "range": true,
           "instant": false
@@ -2085,7 +2085,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_memory_working_set_bytes{project=\"bench\"}",
+          "expr": "container_memory_working_set_bytes{project=\"hjo-bench\"}",
           "legendFormat": "{{svc}}",
           "range": true,
           "instant": false
@@ -2096,7 +2096,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "container_spec_memory_limit_bytes{project=\"bench\"}",
+          "expr": "container_spec_memory_limit_bytes{project=\"hjo-bench\"}",
           "legendFormat": "{{svc}} limit",
           "range": true,
           "instant": false
@@ -2149,7 +2149,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (svc) (rate(container_cpu_cfs_throttled_seconds_total{project=\"bench\"}[$__rate_interval]))",
+          "expr": "sum by (svc) (rate(container_cpu_cfs_throttled_seconds_total{project=\"hjo-bench\"}[$__rate_interval]))",
           "legendFormat": "{{svc}}",
           "range": true,
           "instant": false
@@ -2202,7 +2202,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (svc) (rate(container_fs_reads_total{project=\"bench\"}[$__rate_interval]) + rate(container_fs_writes_total{project=\"bench\"}[$__rate_interval]))",
+          "expr": "sum by (svc) (rate(container_fs_reads_total{project=\"hjo-bench\"}[$__rate_interval]) + rate(container_fs_writes_total{project=\"hjo-bench\"}[$__rate_interval]))",
           "legendFormat": "{{svc}}",
           "range": true,
           "instant": false
@@ -2255,7 +2255,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (svc) (rate(container_fs_io_time_seconds_total{project=\"bench\"}[$__rate_interval])) / clamp_min(sum by (svc) (rate(container_fs_reads_total{project=\"bench\"}[$__rate_interval]) + rate(container_fs_writes_total{project=\"bench\"}[$__rate_interval])), 1)",
+          "expr": "sum by (svc) (rate(container_fs_io_time_seconds_total{project=\"hjo-bench\"}[$__rate_interval])) / clamp_min(sum by (svc) (rate(container_fs_reads_total{project=\"hjo-bench\"}[$__rate_interval]) + rate(container_fs_writes_total{project=\"hjo-bench\"}[$__rate_interval])), 1)",
           "legendFormat": "{{svc}}",
           "range": true,
           "instant": false
@@ -2308,7 +2308,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (svc) (rate(container_fs_writes_bytes_total{project=\"bench\"}[$__rate_interval]))",
+          "expr": "sum by (svc) (rate(container_fs_writes_bytes_total{project=\"hjo-bench\"}[$__rate_interval]))",
           "legendFormat": "{{svc}} write",
           "range": true,
           "instant": false
@@ -2319,7 +2319,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (svc) (rate(container_fs_reads_bytes_total{project=\"bench\"}[$__rate_interval]))",
+          "expr": "sum by (svc) (rate(container_fs_reads_bytes_total{project=\"hjo-bench\"}[$__rate_interval]))",
           "legendFormat": "{{svc}} read",
           "range": true,
           "instant": false
@@ -2330,7 +2330,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (svc) (rate(container_network_receive_bytes_total{project=\"bench\"}[$__rate_interval]))",
+          "expr": "sum by (svc) (rate(container_network_receive_bytes_total{project=\"hjo-bench\"}[$__rate_interval]))",
           "legendFormat": "{{svc}} net rx",
           "range": true,
           "instant": false
@@ -2383,7 +2383,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{project!=\"bench\", name!=\"\"}[$__rate_interval]))",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{project!=\"hjo-bench\", name!=\"\"}[$__rate_interval]))",
           "legendFormat": "{{name}}",
           "range": true,
           "instant": false

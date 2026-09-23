@@ -1,10 +1,12 @@
 # bench-infra 측정 설정. 스크립트가 읽는 값만 둔다 (scripts/lib/common.sh 의 cfg 함수).
 # 형식 제약: 2칸 들여쓰기, 스칼라와 문자열 배열만. 인라인 {}/[] 금지.
 
+# 측정용 postgres 접속 정보. 앱 레포 시드 생성기가 만든 계정·DB 를 그대로 쓴다.
+# compose 의 PGUSER/PGPASSWORD/BENCH_DB 와 같은 값이어야 한다 (.env 로 바꿀 때 양쪽 다)
 postgres:
-  user: bench
+  user: hjo
   db: bench
-  password: bench
+  password: hjo
 
 # 컨테이너별 리소스 예산 (docs/role-3.md). check-resources.sh 가 compose 설정과 docker inspect 를 이 표와 대조한다.
 # mem_limit 은 m 또는 g 단위 정수만 (1.25g 는 1280m 로 적는다).

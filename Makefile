@@ -14,10 +14,11 @@ export COMPOSE_OVERRIDE
 
 TARGET ?=
 RUNS ?= 3
+PROFILE ?= s
 
 .PHONY: help pin pin-check lint build-app \
         check-resources check-targets check-dashboard dashboard \
-        preflight reset measure collect report test
+        seed preflight reset measure collect report test
 
 help: ## 타깃 목록
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -47,6 +48,9 @@ check-dashboard: ## 대시보드 패널 쿼리를 Prometheus 에 실행해 결�
 
 dashboard: ## monitoring/grafana/gen-dashboard.py 로 대시보드 JSON 재생성
 	scripts/dashboard.sh
+
+seed: ## 앱 레포 시드 생성기를 같은 compose 프로젝트로 실행 (PROFILE=s|m|l, 기본 s)
+	scripts/seed.sh $(PROFILE)
 
 preflight: ## VM 리소스, 디스크, 이미지 digest, 컨테이너 상태 점검
 	scripts/preflight.sh

@@ -58,6 +58,23 @@ else
   fail "APP_IMAGE 없음: $APP_IMAGE (make build-app)"
 fi
 
+# --- 시드 생성기와 postgres 이미지가 같은지 ---
+# 같은 볼륨을 공유하므로 메이저 버전이 다르면 PGDATA 를 서로 못 읽는다. 태그가 갈리면 여기서 잡는다.
+seed_compose="${APP_DIR:-$REPO_ROOT/../APP}/seed/compose.seed.yml"
+if [[ -f "$seed_compose" ]]; then
+  # `image: postgres:18.6-bookworm   # 주석` 에서 태그만 뽑는다 (주석·따옴표·공백 제거)
+  seed_pg="$(sed -n 's/^[[:space:]]*image:[[:space:]]*\(postgres:[^[:space:]#"'"'"']*\).*/\1/p' "$seed_compose" | head -n1)"
+  if [[ -z "$seed_pg" ]]; then
+    warn "앱 레포 시드 compose 에서 postgres 이미지를 못 읽었다: $seed_compose"
+  elif [[ "$seed_pg" == "$POSTGRES_IMAGE" ]]; then
+    ok "시드 생성기와 postgres 이미지 일치 ($seed_pg)"
+  else
+    fail "postgres 이미지가 다르다. 시드=$seed_pg, 측정=$POSTGRES_IMAGE (같은 볼륨을 쓰므로 맞춰야 한다)"
+  fi
+else
+  warn "앱 레포 시드 compose 없음: $seed_compose (make seed 를 쓰려면 필요하다)"
+fi
+
 # --- 컨테이너 상태 ---
 for svc in $(compose config --services); do
   cid="$(container_id "$svc")"
@@ -70,7 +87,7 @@ done
 if "$REPO_ROOT/scripts/check-resources.sh" >/dev/null 2>&1; then ok "cpuset·mem_limit 예산 일치"; else fail "리소스 예산 불일치 (scripts/check-resources.sh)"; fi
 
 # --- 같은 VM 의 다른 컨테이너 (측정 간섭) ---
-foreign="$(docker ps --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}' | awk -F'\t' '$2 != "bench" {print $1}' | tr '\n' ' ')"
+foreign="$(docker ps --format '{{.Names}}\t{{.Label "com.docker.compose.project"}}' | awk -F'\t' '$2 != "hjo-bench" {print $1}' | tr '\n' ' ')"
 if [[ -n "$foreign" ]]; then warn "bench 외 실행 중 컨테이너가 VM 자원을 같이 쓴다: $foreign (측정 전 정지 권장)"; else ok "다른 프로젝트 컨테이너 없음"; fi
 
 # --- 호스트 스펙 기록 ---

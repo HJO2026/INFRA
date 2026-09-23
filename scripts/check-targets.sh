@@ -22,7 +22,7 @@ while :; do
 
       # cAdvisor 가 up 이어도 마운트가 플랫폼과 안 맞으면 컨테이너별 지표 대신 루트 cgroup 하나만 나온다.
       # 타깃 up 만 보고 넘어가면 대시보드가 빈 뒤에야 알게 되므로 여기서 한 번 짚는다 (경고만).
-      svc_count="$(curl -fsS "$PROM_URL/api/v1/query" --data-urlencode 'query=count(count by (svc) (container_memory_working_set_bytes{project="bench"}))' 2>/dev/null \
+      svc_count="$(curl -fsS "$PROM_URL/api/v1/query" --data-urlencode 'query=count(count by (svc) (container_memory_working_set_bytes{project="hjo-bench"}))' 2>/dev/null \
         | jq -r '.data.result[0].value[1] // "0"')"
       if [[ "$svc_count" =~ ^[0-9]+$ ]] && (( svc_count >= 2 )); then
         ok "cAdvisor 컨테이너별 지표 ${svc_count}개 서비스"

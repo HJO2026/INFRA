@@ -177,7 +177,18 @@ wait_healthy() {
   die "$svc 가 ${timeout}s 안에 healthy 가 되지 않았다"
 }
 
+# 접속 정보는 bench.config.yml 이 진실의 원천이다 (compose 의 PGUSER/BENCH_DB 와 같은 값이어야 한다).
+# cfg 는 파이썬을 띄우므로 한 번 읽고 캐시한다.
+PG_USER_CACHE=""; PG_DB_CACHE=""
+pg_user() { [[ -n "$PG_USER_CACHE" ]] || PG_USER_CACHE="$(cfg postgres.user)"; printf '%s' "$PG_USER_CACHE"; }
+pg_db()   { [[ -n "$PG_DB_CACHE"   ]] || PG_DB_CACHE="$(cfg postgres.db)";     printf '%s' "$PG_DB_CACHE"; }
+
 psql_in() {
-  # psql_in <sql>  : postgres 컨테이너 안에서 실행
-  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-bench}" -d "${POSTGRES_DB:-bench}" -qtAX -c "$1"
+  # psql_in <sql>  : 측정 대상 DB 에서 실행
+  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$(pg_user)" -d "$(pg_db)" -qtAX -c "$1"
+}
+
+psql_admin() {
+  # psql_admin <sql> : 관리용 DB(postgres)에서 실행. 측정 DB 를 만들고 지울 때 쓴다
+  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$(pg_user)" -d postgres -qtAX -c "$1"
 }

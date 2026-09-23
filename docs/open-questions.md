@@ -139,3 +139,39 @@
 - 정한 것: `* text=auto eol=lf` + 확장자별 `eol=lf`
 - 왜: Git 기본값(`core.autocrlf=true`)으로 윈도우에서 클론하면 셸 스크립트가 CRLF 가 되고 bash 가 첫 줄에서 죽는다
 - 되돌리려면: `.gitattributes` 삭제. 단, 이미 CRLF 로 받은 사람은 `git add --renormalize .` 가 필요하다
+
+## 2026-09-23 / DB 통합 / 측정용 postgres 를 시드 생성기와 한 컨테이너로 합침
+- 정한 것: compose 프로젝트 이름을 `bench` → `hjo-bench` 로 바꾸고, 측정용 postgres 의 볼륨을 `seed-pgdata`,
+  계정을 `hjo`, 측정 DB 를 `bench` 로 맞췄다. 앱 레포 시드 생성기를 같은 프로젝트 이름으로 돌리면
+  **같은 컨테이너·같은 볼륨**을 쓴다. 덤프로 옮기는 단계가 사라졌다 (`make seed`)
+- 왜: postgres 가 둘이라 매번 `pg_dump | pg_restore` 로 옮겨야 했다. 프로파일을 바꿀 때마다 전체 복원이 필요했고,
+  시드 생성기의 빠른 템플릿 복제(FILE_COPY)를 못 썼다
+- 어떻게 한 컨테이너에서 두 설정을 쓰나: 생성할 때는 생성기가 자기 설정(WAL 4GB, 제한 없음)으로 컨테이너를 만들고,
+  끝나면 `scripts/seed.sh` 가 `docker compose up -d --wait` 로 측정 설정(cpuset 0-3, 1GB, postgresql.conf)으로 되돌린다.
+  데이터는 볼륨에 있어 그대로다. 생성·측정 설정 충돌을 재시작 한 번으로 푼 것
+- 되돌리려면: `compose/compose.base.yml` 의 postgres 를 원래 값(볼륨 pgdata, 계정 bench)으로 되돌리고
+  README 의 덤프 이관 절차를 되살린다
+- 확인한 것: 템플릿 복제(`CREATE DATABASE ... TEMPLATE ... FILE_COPY`)는 **플래너 통계(pg_statistic)를 같이 복사한다.**
+  복원 후 VACUUM ANALYZE 가 필요 없다. 다만 `pg_stat_user_tables.n_live_tup` 같은 누적 통계는 0 으로 보이므로
+  행 수는 `pg_class.reltuples` 로 읽는다
+- 남은 것: `compose.seed.yml` 을 INFRA 로 옮기는 건 보류. 앱 레포 `seed.sh` 가 그 파일이 자기 옆에 있다고 가정해서
+  (`cd $(dirname $0); docker compose -f compose.seed.yml`) 옮기면 깨진다. 옮기려면 역할 2 와 조율해
+  `SEED_COMPOSE` 환경변수를 받게 해야 한다
+
+## 2026-09-23 / 측정값 / rate 50 req/s 는 baseline 이 감당하지 못한다
+- 관찰: S 프로파일(글 5만)에서 `rate: 50` 으로 돌리면 회차가 무효로 나온다.
+  postgres CPU 가 388%(cpuset 0-3 포화)까지 올라가고 모든 엔드포인트가 균일하게 느려진다 (p50 약 1,000ms, dropped 100+)
+- 원인: 인덱스가 PK 뿐이라(study-spec 5장 baseline) 목록 조회가 매번 posts 5만 행 순차 스캔 + post_stats 해시 조인 + 정렬을 한다.
+  한 번에 약 58ms, 병렬 워커 2개까지 붙어 CPU 로는 약 136ms. 초당 25건이면 4코어를 넘는다
+- `rate: 15` 에서는 정상이다: p50 30.8ms, p95 37.5ms, p99 46.3ms, dropped 0, 유효
+- 지금 한 것: 없음. `bench.config.yml` 의 `rate: 50` 은 원래 자리값이고 워크로드·SLO 가 확정되면 바뀐다
+- **팀 결정 필요**: 목표 RPS 를 얼마로 잡을지. baseline 포화점이 20~40 req/s 근처라는 게 이번에 나온 실측이다
+
+## 2026-09-23 / 미해결 / 9/20 측정값과 차이를 설명하지 못했다
+- 9/20 같은 시나리오·같은 앱 이미지(9baff5ca6f26)·같은 S 프로파일에서 50 req/s 에 p50 21.5ms 가 나왔고 무효 회차가 없었다.
+  지금은 같은 조건에서 p50 1,000ms 에 무효다
+- 대조한 것: 앱 이미지 ID 동일, DB 크기 118MB→121MB(사실상 동일), 행 수 동일, postgresql.conf 동일,
+  cpuset·mem_limit 동일, 플래너 통계 존재, 같은 VM 에 다른 프로젝트 컨테이너는 오히려 지금이 더 적다
+- 차이는 DB 를 만든 방식뿐이다 (9/20 은 `pg_restore`, 지금은 템플릿 FILE_COPY 복제).
+  그것만으로 5배 이상 차이가 날 이유를 찾지 못했다. **원인 미상으로 남긴다**
+- 다음에 볼 것: 9/20 방식으로 한 번 더 만들어 같은 부하를 주고 실행계획을 비교

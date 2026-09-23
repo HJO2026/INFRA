@@ -4,9 +4,12 @@
 #   docker compose --profile k6 run --rm k6 ...      부하 생성기 (measure.sh 가 쓴다)
 #
 # 이미지 태그는 versions.env 에서 읽는다. 루트에 .env 가 있으면 그 값이 이긴다 (.env.example 참고).
+#
+# 프로젝트 이름이 hjo-bench 인 것이 중요하다. 앱 레포 시드 생성기를 같은 이름으로 돌려야
+# 같은 postgres·같은 볼륨을 쓴다 (scripts/seed.sh 가 그렇게 호출한다).
 # 실제 서비스 정의는 compose/ 아래에 있다. impl 레포 override 는 -f 로 덧붙인다:
 #   docker compose -f compose.yaml -f /path/impl/compose.override.yml up -d --wait
-name: bench
+name: hjo-bench
 
 include:
   - path:

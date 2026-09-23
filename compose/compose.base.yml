@@ -1,7 +1,13 @@
 # bench-infra 기본 스택: SUT(app, postgres) + 부하 생성기(k6, profile). 모니터링은 compose.monitoring.yml.
-# 실행: docker compose --env-file versions.env -f compose/compose.base.yml [-f compose/compose.monitoring.yml] up -d
+# 실행은 레포 루트의 compose.yaml 이 한다: docker compose up -d --wait
 # 리소스 예산: docs/role-3.md (bench.config.yml 의 budget 과 동일해야 한다. check-resources.sh 가 대조)
-name: bench
+#
+# postgres 는 앱 레포 시드 생성기(../APP/seed)와 **같은 컨테이너·같은 볼륨**을 쓴다.
+# 같은 compose 프로젝트(hjo-bench) 안에서 서비스명 postgres, 볼륨명 seed-pgdata 를 맞췄기 때문이다.
+#   시드 만들 때  : seed.sh 가 시드용 설정(WAL 4GB, 제한 없음)으로 컨테이너를 다시 만든다
+#   측정할 때     : 이 파일의 설정(cpuset, mem_limit, postgresql.conf)으로 다시 만든다
+# 데이터는 볼륨에 있으므로 컨테이너가 다시 만들어져도 그대로다.
+name: hjo-bench
 
 x-sut-cpuset: &sut-cpuset "0-3"
 x-k6-cpuset: &k6-cpuset "4-5"
@@ -9,28 +15,31 @@ x-k6-cpuset: &k6-cpuset "4-5"
 services:
   postgres:
     image: ${POSTGRES_IMAGE}
-    container_name: bench-postgres
+    container_name: hjo-bench-postgres
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-bench}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bench}
-      POSTGRES_DB: ${POSTGRES_DB:-bench}
+      # 변수 이름을 앱 레포 시드 compose 와 똑같이 맞췄다. .env 한 곳만 고치면 둘 다 따라온다
+      POSTGRES_USER: ${PGUSER:-hjo}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-hjo}
+      # 관리용 DB. 측정 대상 DB(bench)는 시드 생성기가 템플릿에서 복제해 만든다
+      POSTGRES_DB: postgres
       TZ: UTC
       PGTZ: UTC
     volumes:
+      # 볼륨 이름을 시드 compose 와 맞춰야 같은 데이터를 본다. 바꾸면 시드가 사라진 것처럼 보인다.
       # postgres 18 이미지는 볼륨 루트가 /var/lib/postgresql (PGDATA=/var/lib/postgresql/18/docker)
-      - pgdata:/var/lib/postgresql
+      - seed-pgdata:/var/lib/postgresql
       - ../postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     ports:
-      # 호스트 포트는 변수. 이 호스트에서 5432 는 다른 프로젝트 컨테이너가 쓰고 있어 기본값을 15432 로 둔다
-      - "127.0.0.1:${PG_HOST_PORT:-15432}:5432"
+      # 시드 compose 와 같은 변수(PGPORT). 이 호스트에서 5432 는 다른 프로젝트가 쓰고 있어 기본값을 15432 로 둔다
+      - "127.0.0.1:${PGPORT:-15432}:5432"
     cpuset: *sut-cpuset
     mem_limit: 1g
     memswap_limit: 1g
     shm_size: 256m
     stop_grace_period: 30s
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bench} -d ${POSTGRES_DB:-bench} -h 127.0.0.1"]
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-hjo} -d postgres -h 127.0.0.1"]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -39,12 +48,12 @@ services:
 
   app:
     image: ${APP_IMAGE}
-    container_name: bench-app
+    container_name: hjo-bench-app
     environment:
       # 앱 레포(../APP)의 환경변수 이름을 그대로 쓴다 (README 환경변수 표)
-      DB_WRITE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bench}
-      DB_USERNAME: ${POSTGRES_USER:-bench}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-bench}
+      DB_WRITE_URL: jdbc:postgresql://postgres:5432/${BENCH_DB:-bench}
+      DB_USERNAME: ${PGUSER:-hjo}
+      DB_PASSWORD: ${PGPASSWORD:-hjo}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       VIRTUAL_THREADS_ENABLED: ${VIRTUAL_THREADS_ENABLED:-false}
       # HS256 공유 비밀키(32바이트 이상). 없으면 앱이 기동하지 않는다. 팀 값은 .env 로 덮어쓴다 (.env.example)
@@ -105,7 +114,8 @@ services:
     networks: [bench]
 
 volumes:
-  pgdata:
+  # 시드 생성기(../APP/seed/compose.seed.yml)가 쓰는 이름과 같아야 한다
+  seed-pgdata:
   gclogs:
 
 networks:

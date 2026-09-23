@@ -8,7 +8,7 @@ later = 지금 없는 컴포넌트(Kafka, e2e 타이머 등). scripts/check-dash
 import json, os
 
 DS = {"type": "prometheus", "uid": "prometheus"}
-PROJ = '{project="bench"}'
+PROJ = '{project="hjo-bench"}'
 DB = '{datname="bench"}'
 APP_REQ = 'http_server_requests_seconds'
 NON_ACT = 'uri!~"/actuator.*"'
@@ -229,7 +229,7 @@ line(
 )
 line(
     dict(title="같은 VM 의 다른 프로젝트 컨테이너 CPU (측정 간섭)", expect="optional", unit="short",
-         targets=[('sum by (name) (rate(container_cpu_usage_seconds_total{project!="bench", name!=""}[$__rate_interval]))', "{{name}}")],
+         targets=[('sum by (name) (rate(container_cpu_usage_seconds_total{project!="hjo-bench", name!=""}[$__rate_interval]))', "{{name}}")],
          desc="preflight 가 경고하는 외부 컨테이너. 측정 중 0 에 가까워야 한다"),
     dict(title="Docker VM 전체 CPU · 메모리", expect="optional", unit="short",
          targets=[('sum(rate(container_cpu_usage_seconds_total{id="/"}[$__rate_interval]))', "VM CPU cores"),

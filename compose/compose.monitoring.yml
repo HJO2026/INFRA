@@ -1,12 +1,12 @@
 # 모니터링 스택. 전부 cpuset 6 (docs/role-3.md 예산표). base 와 함께 -f 로 합쳐 쓴다.
-name: bench
+name: hjo-bench
 
 x-mon-cpuset: &mon-cpuset "6"
 
 services:
   prometheus:
     image: ${PROMETHEUS_IMAGE}
-    container_name: bench-prometheus
+    container_name: hjo-bench-prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -39,7 +39,7 @@ services:
   # Grafana 없이도 측정과 판정은 그대로 된다 (Prometheus 가 지표를 모으고, make check-dashboard 가 패널 쿼리를 직접 실행한다).
 #  grafana:
 #    image: ${GRAFANA_IMAGE}
-#    container_name: bench-grafana
+#    container_name: hjo-bench-grafana
 #    environment:
 #      TZ: UTC
 #      GF_AUTH_ANONYMOUS_ENABLED: "true"        # 익명 조회
@@ -74,7 +74,7 @@ services:
 
   cadvisor:
     image: ${CADVISOR_IMAGE}
-    container_name: bench-cadvisor
+    container_name: hjo-bench-cadvisor
     command:
       - --docker_only=true
       - --housekeeping_interval=5s
@@ -101,12 +101,12 @@ services:
 
   postgres_exporter:
     image: ${POSTGRES_EXPORTER_IMAGE}
-    container_name: bench-postgres-exporter
+    container_name: hjo-bench-postgres-exporter
     environment:
       TZ: UTC
-      DATA_SOURCE_URI: postgres:5432/${POSTGRES_DB:-bench}?sslmode=disable
-      DATA_SOURCE_USER: ${POSTGRES_USER:-bench}
-      DATA_SOURCE_PASS: ${POSTGRES_PASSWORD:-bench}
+      DATA_SOURCE_URI: postgres:5432/${BENCH_DB:-bench}?sslmode=disable
+      DATA_SOURCE_USER: ${PGUSER:-hjo}
+      DATA_SOURCE_PASS: ${PGPASSWORD:-hjo}
       PG_EXPORTER_DISABLE_DEFAULT_METRICS: "false"
       PG_EXPORTER_DISABLE_SETTINGS_METRICS: "false"
     command:
